@@ -1,0 +1,90 @@
+{
+  "description": "Level 3 retry - SOP identified and workflow mapped, but RCA execution failed. Re-run analytical agent from stage2_execute queue.",
+  "retry_level": "level3",
+  "expected_queue": "stage2_execute",
+  "precondition_summary": "Alert has sop_workflow_id set (prerequisite for level3). No RCA generated yet. Re-execute SOP workflow.",
+  "alert": {
+    "source_application": "payment-gateway",
+    "domain": "database",
+    "category": "connectivity",
+    "severity": "high",
+    "sop_identifier_keys": ["connection_pool", "exhaustion"],
+    "alert_type": "structured",
+    "status": "sop_identified",
+    "processing_status": "sop_workflow_processfailed",
+    "sop_document_id": "SOP_DOC_DB_CONN_POOL",
+    "sop_workflow_id": "SOP_WF_DB_CONN_POOL_001",
+    "sop_id": "SOP_DB_CONN_POOL",
+    "latest_effective_rca_id": null,
+    "retry_in_progress": false,
+    "retry_attempt_count": 1,
+    "raw_payload": {
+      "host": "prod-db-02",
+      "active_connections": 195,
+      "max_connections": 200,
+      "wait_queue": 47,
+      "timestamp": "2026-04-25T11:15:00Z",
+      "alert_source": "datadog",
+      "environment": "production",
+      "region": "us-east-1"
+    }
+  },
+  "supporting_docs": {
+    "sop_workflow": {
+      "sop_id": "SOP_DB_CONN_POOL",
+      "alert_identifier": {
+        "application": "payment-gateway",
+        "domain": "database",
+        "category": "connectivity"
+      },
+      "triaging_steps": [
+        {
+          "step_id": 1,
+          "action": "Query database connection error logs",
+          "tool": "splunk_query",
+          "tool_params": {
+            "query": "index=app_logs host={host} (\"connection pool\" OR \"timeout\") earliest=-1h",
+            "time_range": "1h"
+          }
+        },
+        {
+          "step_id": 2,
+          "action": "Check active database connections trend",
+          "tool": "prometheus_query",
+          "tool_params": {
+            "query": "db_pool_active_connections{instance='{host}'}",
+            "step": "60s",
+            "duration": "1h"
+          }
+        },
+        {
+          "step_id": 3,
+          "action": "Verify database endpoint health",
+          "tool": "health_check",
+          "tool_params": {
+            "url": "https://{host}:5432/health",
+            "timeout": 5
+          }
+        }
+      ],
+      "communication_steps": [
+        {
+          "channel": "teams",
+          "template": "alert_rca_notification",
+          "recipients": ["db-ops-team", "app-owners"]
+        }
+      ]
+    },
+    "rca_result": null,
+    "validation_result": null
+  },
+  "expected_outcome": {
+    "accepted": true,
+    "queue": "stage2_execute",
+    "soft_invalidation": {
+      "rca_results_cleared": false,
+      "validation_results_cleared": true,
+      "sop_fields_cleared": false
+    }
+  }
+}

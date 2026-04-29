@@ -1,0 +1,138 @@
+{
+   "high_cpu_alert.txt":{
+      "name":"High CPU Alert - Application Server",
+      "application":"order-service",
+      "domain":"infrastructure",
+      "category":"performance",
+      "severity":"critical",
+      "workflow_file":"high_cpu_workflow.json",
+      "dynamic_classifiers":[
+         {"label":"1","field_name":"environment","field_value":"production"},
+         {"label":"2","field_name":"region","field_value":"us-east-1"},
+         {"label":"3","field_name":"host_type","field_value":"application-server"},
+         {"label":"4","field_name":"operating_system","field_value":"linux"},
+         {"label":"5","field_name":"cloud_provider","field_value":"cloud-aws"},
+         {"label":"6","field_name":"alert_source","field_value":"prometheus"},
+         {"label":"7","field_name":"service_tier","field_value":"tier-1"}
+      ]
+   },
+   "db_connection_pool.txt":{
+      "name":"Database Connection Pool Exhaustion",
+      "application":"payment-gateway",
+      "domain":"database",
+      "category":"connectivity",
+      "severity":"high",
+      "workflow_file":"db_connection_pool_workflow.json",
+      "dynamic_classifiers":[
+         {"label":"1","field_name":"environment","field_value":"production"},
+         {"label":"2","field_name":"region","field_value":"us-east-1"},
+         {"label":"3","field_name":"host_type","field_value":"database-server"},
+         {"label":"4","field_name":"operating_system","field_value":"linux"},
+         {"label":"5","field_name":"cloud_provider","field_value":"cloud-aws"},
+         {"label":"6","field_name":"alert_source","field_value":"datadog"},
+         {"label":"7","field_name":"service_tier","field_value":"tier-1"}
+      ]
+   },
+   "memory_leak.txt":{
+      "name":"Memory Leak Detection",
+      "application":"user-auth-service",
+      "domain":"infrastructure",
+      "category":"memory",
+      "severity":"warning",
+      "workflow_file":"memory_leak_workflow.json",
+      "dynamic_classifiers":[
+         {"label":"1","field_name":"environment","field_value":"staging"},
+         {"label":"2","field_name":"region","field_value":"eu-west-1"},
+         {"label":"3","field_name":"host_type","field_value":"application-server"},
+         {"label":"4","field_name":"operating_system","field_value":"linux"},
+         {"label":"5","field_name":"cloud_provider","field_value":"cloud-aws"},
+         {"label":"6","field_name":"alert_source","field_value":"prometheus"},
+         {"label":"7","field_name":"service_tier","field_value":"tier-2"}
+      ]
+   },
+   "disk_space_full_linux.txt":{
+      "name":"Disk Space Full - Linux Server",
+      "application":"container-platform",
+      "domain":"infrastructure",
+      "category":"disk",
+      "severity":"critical",
+      "workflow_file":"disk_space_full_linux_workflow.json",
+      "dynamic_classifiers":[
+         {"label":"1","field_name":"environment","field_value":"production"},
+         {"label":"2","field_name":"region","field_value":"us-west-2"},
+         {"label":"3","field_name":"host_type","field_value":"kubernetes-node"},
+         {"label":"4","field_name":"operating_system","field_value":"linux"},
+         {"label":"5","field_name":"cloud_provider","field_value":"cloud-aws"},
+         {"label":"6","field_name":"alert_source","field_value":"prometheus"},
+         {"label":"7","field_name":"service_tier","field_value":"tier-1"}
+      ]
+   },
+   "Splunk_Alert_ High_Count_of_ext_authz_error.pdf":{
+      "name":"TAG-TaapSec Splunk Alert Hig Count of ext Authz Error Critical",
+      "application":"TAG",
+      "domain":"infrastructure",
+      "category":"Authentiction",
+      "severity":"critical",
+      "workflow_file":"high_Count_ext_authz_error_workflow.json",
+      "dynamic_classifiers":[
+         {"label":"1","field_name":"alert","field_value":"High Count of ext_authz_error - Critical !!"},
+         {"label":"2","field_name":"kubernetes_cluster","field_value":"meg-prd-w2"},
+         {"label":"3","field_name":"MEG 3.0","field_value":"meg-prd-w2"},
+         {"label":"4","field_name":"operating_system","field_value":"linux"},
+         {"label":"5","field_name":"cloud_provider","field_value":"cloud-aws"},
+         {"label":"6","field_name":"alert_source","field_value":"prometheus"},
+         {"label":"7","field_name":"service_tier","field_value":"tier-1"}
+      ]
+   },
+   "api_gateway_graphql_errors.txt":{
+      "name":"API Gateway GraphQL Error Spike",
+      "application":"api-gateway",
+      "domain":"api",
+      "category":"errors",
+      "severity":"high",
+      "workflow_file":"api_gateway_graphql_errors_workflow.json",
+      "dynamic_classifiers":[
+         {"label":"1","field_name":"environment","field_value":"production"},
+         {"label":"2","field_name":"region","field_value":"us-east-1"},
+         {"label":"3","field_name":"host_type","field_value":"api-gateway"},
+         {"label":"4","field_name":"protocol","field_value":"graphql"},
+         {"label":"5","field_name":"cloud_provider","field_value":"cloud-aws"},
+         {"label":"6","field_name":"alert_source","field_value":"datadog"},
+         {"label":"7","field_name":"service_tier","field_value":"tier-1"}
+      ]
+   },
+   "cmdb_config_drift.txt":{
+      "name":"CMDB Configuration Drift Detected",
+      "application":"cmdb",
+      "domain":"infrastructure",
+      "category":"configuration",
+      "severity":"high",
+      "workflow_file":"cmdb_config_drift_workflow.json",
+      "dynamic_classifiers":[
+         {"label":"1","field_name":"environment","field_value":"production"},
+         {"label":"2","field_name":"region","field_value":"us-east-1"},
+         {"label":"3","field_name":"drift_type","field_value":"config-drift"},
+         {"label":"4","field_name":"operating_system","field_value":"linux"},
+         {"label":"5","field_name":"cloud_provider","field_value":"cloud-aws"},
+         {"label":"6","field_name":"alert_source","field_value":"cmdb-drift-detector"},
+         {"label":"7","field_name":"service_tier","field_value":"tier-2"}
+      ]
+   },
+   "node_disk_cleanup.txt":{
+      "name":"Node Disk Space Critical - Shell Cleanup",
+      "application":"infrastructure",
+      "domain":"infrastructure",
+      "category":"disk",
+      "severity":"critical",
+      "workflow_file":"node_disk_cleanup_workflow.json",
+      "dynamic_classifiers":[
+         {"label":"1","field_name":"environment","field_value":"production"},
+         {"label":"2","field_name":"region","field_value":"us-west-2"},
+         {"label":"3","field_name":"host_type","field_value":"linux-node"},
+         {"label":"4","field_name":"operating_system","field_value":"linux"},
+         {"label":"5","field_name":"cloud_provider","field_value":"cloud-aws"},
+         {"label":"6","field_name":"alert_source","field_value":"node-exporter"},
+         {"label":"7","field_name":"service_tier","field_value":"tier-1"}
+      ]
+   }
+}

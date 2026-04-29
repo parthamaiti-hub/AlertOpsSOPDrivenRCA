@@ -1,0 +1,55 @@
+{
+  "sop_id": "SOP_DB_CONN_POOL",
+  "alert_identifier": {
+    "application": "payment-gateway",
+    "domain": "database",
+    "category": "connectivity"
+  },
+  "triaging_steps": [
+    {
+      "step_id": 1,
+      "action": "Query database connection error logs",
+      "tool": "splunk_query",
+      "tool_params": {
+        "query": "index=app_logs host={host} (\"connection pool\" OR \"timeout\" OR \"connection refused\") earliest=-1h",
+        "time_range": "1h"
+      }
+    },
+    {
+      "step_id": 2,
+      "action": "Check active database connections trend",
+      "tool": "prometheus_query",
+      "tool_params": {
+        "query": "db_pool_active_connections{instance='{host}'}",
+        "step": "60s",
+        "duration": "1h"
+      }
+    },
+    {
+      "step_id": 3,
+      "action": "Check database query duration for slow queries",
+      "tool": "prometheus_query",
+      "tool_params": {
+        "query": "histogram_quantile(0.99, rate(db_query_duration_seconds_bucket{instance='{host}'}[5m]))",
+        "step": "60s",
+        "duration": "1h"
+      }
+    },
+    {
+      "step_id": 4,
+      "action": "Verify database endpoint health",
+      "tool": "health_check",
+      "tool_params": {
+        "url": "https://{host}:5432/health",
+        "timeout": 5
+      }
+    }
+  ],
+  "communication_steps": [
+    {
+      "channel": "teams",
+      "template": "alert_rca_notification",
+      "recipients": ["db-ops-team", "app-owners"]
+    }
+  ]
+}

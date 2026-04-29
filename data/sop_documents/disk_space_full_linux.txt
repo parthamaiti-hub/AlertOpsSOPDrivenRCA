@@ -1,0 +1,14 @@
+SOP: Disk Space Full - Linux Server
+
+1. SOP Definition
+This SOP addresses disk space exhaustion alerts on Linux application servers. It applies when any mounted filesystem exceeds 90% utilization on production servers. Common causes include log file accumulation, temp file growth, large core dumps, or database WAL file buildup. Primarily affects application servers running containerized workloads in cloud environments.
+
+2. Triaging Steps
+Step 1: Query Splunk for disk-related warnings, "No space left on device" errors, and filesystem alerts on the affected host.
+Step 2: Query Prometheus for disk utilization percentage trend across all mount points on the host to identify the affected filesystem.
+Step 3: Query Prometheus for disk I/O throughput metrics to determine if active writes are ongoing.
+Step 4: Perform a health check on the application endpoint to verify if the service is still responding.
+Step 5: Determine if the space consumption is from application logs, temp files, container images, or database storage.
+
+3. Communication
+Notify the infrastructure team and on-call SRE via Teams with disk usage analysis, affected mount points, cleanup recommendations, and estimated time to full capacity.

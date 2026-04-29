@@ -1,0 +1,9 @@
+MEG 3.0 = px-prd4211, px-prd5111, tt-prd2111, meg-prd-w2, meg-prd-e1
+Alert:	High Count of ext_authz_error - Critical !!
+
+Search String:	index=meg_dataplane proxyName!=uepapp-api-gw respCodeDetails=ext_authz_error | stats count by kubernetes_cluster | search count > 500
+Trigger:	Saved Search [High Count of ext_authz_error - Critical !!]: number of events (1) 
+Trigger Time:	19:07:56 +0000 on March 18, 2026.
+View results in Splunk
+kubernetes_cluster	count
+meg-prd-w2	532

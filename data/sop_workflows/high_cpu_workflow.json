@@ -1,0 +1,55 @@
+{
+  "sop_id": "SOP_HIGH_CPU",
+  "alert_identifier": {
+    "application": "order-service",
+    "domain": "infrastructure",
+    "category": "performance"
+  },
+  "triaging_steps": [
+    {
+      "step_id": 1,
+      "action": "Query application logs for error patterns",
+      "tool": "splunk_query",
+      "tool_params": {
+        "query": "index=app_logs host={host} level=ERROR earliest=-1h",
+        "time_range": "1h"
+      }
+    },
+    {
+      "step_id": 2,
+      "action": "Check CPU utilization trend",
+      "tool": "prometheus_query",
+      "tool_params": {
+        "query": "rate(process_cpu_seconds_total{instance='{host}'}[5m])",
+        "step": "60s",
+        "duration": "1h"
+      }
+    },
+    {
+      "step_id": 3,
+      "action": "Check request latency p99",
+      "tool": "prometheus_query",
+      "tool_params": {
+        "query": "histogram_quantile(0.99, rate(http_request_duration_seconds_bucket{service='{application}'}[5m]))",
+        "step": "60s",
+        "duration": "1h"
+      }
+    },
+    {
+      "step_id": 4,
+      "action": "Verify service health",
+      "tool": "health_check",
+      "tool_params": {
+        "url": "https://{host}:8080/health",
+        "timeout": 5
+      }
+    }
+  ],
+  "communication_steps": [
+    {
+      "channel": "teams",
+      "template": "alert_rca_notification",
+      "recipients": ["ops-team"]
+    }
+  ]
+}

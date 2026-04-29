@@ -1,0 +1,120 @@
+{
+  "description": "Level 4 retry - RCA generated but validation failed or confidence score too low. Re-run validation agent from stage3_validate queue.",
+  "retry_level": "level4",
+  "expected_queue": "stage3_validate",
+  "precondition_summary": "Alert has latest_effective_rca_id set. Active rca_results doc exists. Re-validate RCA against updated RAG DB.",
+  "alert": {
+    "source_application": "container-platform",
+    "domain": "infrastructure",
+    "category": "storage",
+    "severity": "critical",
+    "sop_identifier_keys": ["disk_space", "filesystem_full"],
+    "alert_type": "text",
+    "alert_text": "ALERT: Disk Space Critical on prod-k8s-node-07. Severity: Critical. The root filesystem on host prod-k8s-node-07 has reached 95% utilization. Linux Ubuntu 22.04 machine running containerized workloads in us-west-2 AWS region. Container logs and temp files are primary consumers. Disk I/O is elevated. Application health checks are intermittently failing. Mount point affected: /var/lib/docker.",
+    "status": "rca_generated",
+    "processing_status": "RCANotValidated",
+    "sop_document_id": "SOP_DOC_DISK_SPACE_LINUX",
+    "sop_workflow_id": "SOP_WF_DISK_SPACE_LINUX_001",
+    "sop_id": "SOP_DISK_SPACE_FULL_LINUX",
+    "latest_effective_rca_id": "RCA_DISK_SPACE_001",
+    "retry_in_progress": false,
+    "retry_attempt_count": 1,
+    "raw_payload": {
+      "host": "prod-k8s-node-07",
+      "disk_usage_percent": 95,
+      "mount_point": "/var/lib/docker",
+      "timestamp": "2026-04-25T14:22:00Z",
+      "alert_source": "prometheus-alertmanager",
+      "environment": "production",
+      "region": "us-west-2"
+    }
+  },
+  "supporting_docs": {
+    "sop_workflow": {
+      "sop_id": "SOP_DISK_SPACE_FULL_LINUX",
+      "alert_identifier": {
+        "application": "container-platform",
+        "domain": "infrastructure",
+        "category": "storage"
+      },
+      "triaging_steps": [
+        {
+          "step_id": 1,
+          "action": "Check disk usage breakdown by directory",
+          "tool": "splunk_query",
+          "tool_params": {
+            "query": "index=syslog host={host} \"disk\" earliest=-1h | stats count by directory",
+            "time_range": "1h"
+          }
+        },
+        {
+          "step_id": 2,
+          "action": "Monitor disk I/O utilization trend",
+          "tool": "prometheus_query",
+          "tool_params": {
+            "query": "rate(node_disk_io_time_seconds_total{instance='{host}'}[5m])",
+            "step": "60s",
+            "duration": "2h"
+          }
+        },
+        {
+          "step_id": 3,
+          "action": "Verify container health and storage",
+          "tool": "health_check",
+          "tool_params": {
+            "url": "https://{host}:10250/healthz",
+            "timeout": 5
+          }
+        }
+      ],
+      "communication_steps": [
+        {
+          "channel": "teams",
+          "template": "alert_rca_notification",
+          "recipients": ["platform-ops-team", "on-call-engineer"]
+        }
+      ]
+    },
+    "rca_result": {
+      "sop_id": "SOP_DISK_SPACE_FULL_LINUX",
+      "triaging_results": [
+        {
+          "step_id": 1,
+          "action": "Check disk usage breakdown by directory",
+          "result": "Top directories consuming space: /var/lib/docker/overlay2 (68GB), /var/log/containers (12GB)",
+          "tool": "splunk_query",
+          "status": "completed"
+        },
+        {
+          "step_id": 2,
+          "action": "Monitor disk I/O utilization trend",
+          "result": "I/O wait at 85% over last 2 hours, spike started at 12:00 UTC",
+          "tool": "prometheus_query",
+          "status": "completed"
+        },
+        {
+          "step_id": 3,
+          "action": "Verify container health and storage",
+          "result": "Kubelet health check returning 503 - storage pressure detected",
+          "tool": "health_check",
+          "status": "completed"
+        }
+      ],
+      "root_cause": "Docker overlay2 filesystem consuming 68GB due to orphaned container layers not cleaned up after pod eviction events. Combined with container log rotation misconfiguration.",
+      "impact": "Kubelet under storage pressure causing pod scheduling failures. Intermittent application health check failures affecting service availability.",
+      "recommendation": "1. Run docker system prune -f to remove dangling images and stopped containers. 2. Fix log rotation config in /etc/logrotate.d/containers. 3. Set up automated cleanup cron job.",
+      "is_active_latest": true,
+      "run_kind": "primary"
+    },
+    "validation_result": null
+  },
+  "expected_outcome": {
+    "accepted": true,
+    "queue": "stage3_validate",
+    "soft_invalidation": {
+      "rca_results_cleared": false,
+      "validation_results_cleared": true,
+      "sop_fields_cleared": false
+    }
+  }
+}

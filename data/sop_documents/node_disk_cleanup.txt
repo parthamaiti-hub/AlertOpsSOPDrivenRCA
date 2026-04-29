@@ -1,0 +1,14 @@
+SOP: Node Disk Space Critical - Shell Cleanup
+
+1. SOP Definition
+This SOP addresses critical disk usage alerts on Linux/Unix compute nodes where a filesystem has exceeded 90% capacity. It applies to any production node where disk utilization is reported above the warning threshold. Common root causes include log file accumulation, core dump files, large temporary files left by batch jobs, container image cache growth, or application data not being archived.
+
+2. Triaging Steps
+Step 1: Run a disk usage summary script (df -h) to confirm the current utilization across all filesystems on the affected node and identify which partition is critically full.
+Step 2: Run a process and open file listing script (lsof +D / | head -30) to identify which processes currently hold open file handles to large or deleted files that have not been released.
+Step 3: Run a top disk consumers script (du -sh /* 2>/dev/null | sort -rh | head -20) to identify the top directories consuming the most space.
+Step 4: Run a log file cleanup script targeting /var/log to remove rotated logs older than 7 days and compressed logs older than 30 days.
+Step 5: Re-run the disk usage summary (df -h) after cleanup to confirm that free space has been recovered and the alert threshold is no longer breached.
+
+3. Communication
+Notify the infrastructure operations team via Teams channel with the node identifier, before/after disk utilization, files cleaned, and any follow-up actions required (log rotation policy review, storage expansion request).

@@ -1,0 +1,10 @@
+generate_rca: |
+  You are an AIOps analyst. Based on the following alert and triaging results, provide a root cause analysis.
+
+  Alert: application={source_application}, domain={domain}, category={category}, severity={severity}
+  Raw payload: {raw_payload}
+
+  Triaging results:
+  {results_summary}
+
+  Respond in JSON with keys: root_cause, impact, recommendation

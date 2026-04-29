@@ -1,0 +1,17 @@
+{
+  "alert_text": "ALERT: Disk Space Critical on prod-linux-node-22\n\nSeverity: Critical\nTimestamp: 2026-05-10T13:15:00Z\nSource: Node Exporter / Prometheus AlertManager\n\nThe root filesystem on host prod-linux-node-22 has reached 94% utilization. The application context is infrastructure in the infrastructure domain, category is disk. The environment is production in the us-west-2 AWS region. The host type is linux-node. The operating system is linux. The cloud provider is cloud-aws. Alert source is node-exporter. Service tier is tier-1. The /var/log directory accounts for approximately 60GB of the used space. Log rotation has not run in 18 days. Application workloads on this node include batch job workers. Disk I/O wait is elevated at 18%. Free space is less than 12GB, which may cause application write failures imminently.",
+  "raw_payload": {
+    "host": "prod-linux-node-22",
+    "alert_source": "node-exporter",
+    "application": "infrastructure",
+    "domain": "infrastructure",
+    "category": "disk",
+    "severity": "critical",
+    "environment": "production",
+    "region": "us-west-2",
+    "filesystem": "/",
+    "usage_percent": 94,
+    "free_gb": 11.8,
+    "log_dir_size_gb": 60
+  }
+}

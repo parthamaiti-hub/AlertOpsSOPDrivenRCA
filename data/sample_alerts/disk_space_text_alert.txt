@@ -1,0 +1,33 @@
+ALERT: Critical Disk Space Threshold Exceeded
+
+Severity: critical
+Alert Source: prometheus
+Time: 2026-04-20T09:15:42Z
+
+Host: kube-node-prod-us-west-2-07
+Application: container-platform
+Environment: production
+Region: us-west-2
+Cloud Provider: cloud-aws
+Host Type: kubernetes-node
+Operating System: linux
+Service Tier: tier-1
+
+Alert Details:
+Disk usage on /var/lib/docker has reached 94.3% (used: 188 GB of 200 GB).
+Threshold: 90% for more than 10 minutes.
+
+Impacted Pods:
+- app-registry-6d8f9c-xkj2p
+- log-aggregator-7b4d2f-mn9q1
+- container-runtime-watcher-9f3a1e
+
+Recent Events:
+  [09:04] Disk usage crossed 85% warning threshold
+  [09:08] Log aggregator reported write errors on /var/lib/docker/overlay2
+  [09:15] Disk usage crossed 90% critical threshold - alert fired
+
+Action Required:
+Immediate investigation needed. Potential causes: container image accumulation,
+runaway log files, or insufficient volume provisioning for this Kubernetes node.
+Please follow the Disk Space Full SOP for production kubernetes-node hosts.

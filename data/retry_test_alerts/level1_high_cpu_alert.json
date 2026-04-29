@@ -1,0 +1,45 @@
+{
+  "description": "Level 1 retry - fresh alert just ingested with no prior pipeline execution. Full pipeline re-run from alert_ingest queue.",
+  "retry_level": "level1",
+  "expected_queue": "alert_ingest",
+  "precondition_summary": "Alert exists in DB with status=ingested. No SOP identified, no RCA, no validation.",
+  "alert": {
+    "source_application": "order-service",
+    "domain": "infrastructure",
+    "category": "performance",
+    "severity": "critical",
+    "sop_identifier_keys": ["high_cpu", "app_server"],
+    "alert_type": "structured",
+    "status": "ingested",
+    "processing_status": "ingested",
+    "sop_document_id": null,
+    "sop_workflow_id": null,
+    "sop_id": null,
+    "latest_effective_rca_id": null,
+    "retry_in_progress": false,
+    "retry_attempt_count": 0,
+    "raw_payload": {
+      "host": "prod-app-01",
+      "cpu_percent": 98.5,
+      "duration_minutes": 15,
+      "timestamp": "2026-04-25T10:30:00Z",
+      "alert_source": "prometheus-alertmanager",
+      "environment": "production",
+      "region": "us-east-1"
+    }
+  },
+  "supporting_docs": {
+    "sop_workflow": null,
+    "rca_result": null,
+    "validation_result": null
+  },
+  "expected_outcome": {
+    "accepted": true,
+    "queue": "alert_ingest",
+    "soft_invalidation": {
+      "rca_results_cleared": false,
+      "validation_results_cleared": false,
+      "sop_fields_cleared": true
+    }
+  }
+}

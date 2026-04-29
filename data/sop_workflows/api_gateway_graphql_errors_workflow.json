@@ -1,0 +1,56 @@
+{
+  "sop_id": "SOP_API_GRAPHQL_ERRORS",
+  "alert_identifier": {
+    "application": "api-gateway",
+    "domain": "api",
+    "category": "errors"
+  },
+  "triaging_steps": [
+    {
+      "step_id": 1,
+      "action": "Retrieve current GraphQL service metrics including error rate and latency",
+      "tool": "graphql_query",
+      "tool_params": {
+        "endpoint": "http://api-gateway:4000/graphql",
+        "query": "{ serviceMetrics(service: \"{application}\") { errorRate p99Latency throughput availabilityPercent } }",
+        "variables": {}
+      }
+    },
+    {
+      "step_id": 2,
+      "action": "Check deployment and pod status for recent rollout issues",
+      "tool": "graphql_query",
+      "tool_params": {
+        "endpoint": "http://k8s-graphql-api:8080/graphql",
+        "query": "{ deployments(namespace: \"production\", labelSelector: \"app={application}\") { name replicas readyReplicas restartCount lastRestartedAt status } }",
+        "variables": {}
+      }
+    },
+    {
+      "step_id": 3,
+      "action": "Query Prometheus for HTTP error rate trend on the API gateway",
+      "tool": "prometheus_query",
+      "tool_params": {
+        "query": "rate(http_requests_total{job=\"{application}\",status=~\"5..\"}[5m]) / rate(http_requests_total{job=\"{application}\"}[5m]) * 100",
+        "step": "60s",
+        "duration": "2h"
+      }
+    },
+    {
+      "step_id": 4,
+      "action": "Verify the GraphQL endpoint is reachable",
+      "tool": "health_check",
+      "tool_params": {
+        "url": "http://api-gateway:4000/health",
+        "timeout": 10
+      }
+    }
+  ],
+  "communication_steps": [
+    {
+      "channel": "teams",
+      "template": "alert_rca_notification",
+      "recipients": ["api-platform-team", "sre-team"]
+    }
+  ]
+}

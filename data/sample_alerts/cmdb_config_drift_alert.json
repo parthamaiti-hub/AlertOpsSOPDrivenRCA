@@ -1,0 +1,15 @@
+{
+  "alert_text": "ALERT: Configuration Drift Detected on prod-app-server-14\n\nSeverity: High\nTimestamp: 2026-05-10T11:30:00Z\nSource: CMDB Drift Detector\n\nConfiguration drift has been detected on the host prod-app-server-14. The CMDB drift detection agent reports that the running configuration diverges from the approved production baseline. The application context is cmdb in the infrastructure domain, category is configuration. The environment is production in the us-east-1 AWS region. Drifted attributes include: nginx version (expected 1.24.0, actual 1.25.3), kernel parameters (net.core.somaxconn expected 1024, actual 4096), and an unauthorized cron job found in /etc/cron.d/. The cloud provider is cloud-aws. Alert source is cmdb-drift-detector. Service tier is tier-2. Last approved change record: CHG0045231 applied 72 hours ago.",
+  "raw_payload": {
+    "host": "prod-app-server-14",
+    "alert_source": "cmdb-drift-detector",
+    "application": "cmdb",
+    "domain": "infrastructure",
+    "category": "configuration",
+    "severity": "high",
+    "environment": "production",
+    "region": "us-east-1",
+    "drifted_attributes": ["nginx_version", "kernel_net.core.somaxconn", "unauthorized_cron"],
+    "last_change_record": "CHG0045231"
+  }
+}

@@ -1,0 +1,18 @@
+SOP: App1 Memory Leak Detection
+
+1. SOP Definition
+This SOP addresses memory leak alerts in App1 application services. It applies when heap memory usage shows continuous growth without corresponding garbage collection recovery, typically identified by steady memory increase over hours. Commonly affects long-running services with object reference leaks.
+
+2. Triaging Steps
+Step 1: Query Splunk for OutOfMemory errors, GC overhead warnings, and memory-related exceptions on the affected host.
+Step 2: Query Splunk for heap memory usage trend to confirm continuous growth pattern.
+Step 3: Query Splunk for garbage collection frequency and pause duration metrics.
+step 4: Communicate to Ops team If RCA status is failed;
+Step 5: Perform a health check on the service to assess current availability and response time degradation.
+Step 6: Query Tag for further triaging : referring TAG documents 
+step 7: Communicate to Engage2 team If RCA failed is failed;
+Step 8: Determine RCA from consolidated triaging data :  error if the leak is caused by cache growth, unclosed resources, listener accumulation, or third-party library issues.
+
+
+3. Communication
+Notify the development team and SRE via Teams with memory growth analysis, suspected leak source, and recommended actions (restart schedule, heap dump analysis).

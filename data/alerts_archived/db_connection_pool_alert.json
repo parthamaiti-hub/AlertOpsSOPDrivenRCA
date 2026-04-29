@@ -1,0 +1,15 @@
+{
+  "source_application": "payment-gateway",
+  "domain": "database",
+  "category": "connectivity",
+  "severity": "high",
+  "sop_identifier_keys": ["connection_pool", "exhaustion"],
+  "raw_payload": {
+    "host": "prod-db-02",
+    "active_connections": 195,
+    "max_connections": 200,
+    "wait_queue": 47,
+    "timestamp": "2026-04-10T11:15:00Z",
+    "alert_source": "datadog"
+  }
+}

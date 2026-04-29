@@ -1,0 +1,15 @@
+@import "tailwindcss";
+
+@theme {
+  --color-navy: #032147;
+  --color-blue-primary: #209dd7;
+  --color-purple: #753991;
+  --color-yellow-accent: #ecad0a;
+  --color-gray-text: #888888;
+}
+
+body {
+  font-family: system-ui, -apple-system, sans-serif;
+  color: var(--color-navy);
+  background: #f8f9fb;
+}

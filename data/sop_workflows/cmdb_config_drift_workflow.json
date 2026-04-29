@@ -1,0 +1,69 @@
+{
+  "sop_id": "SOP_CMDB_CONFIG_DRIFT",
+  "alert_identifier": {
+    "application": "cmdb",
+    "domain": "infrastructure",
+    "category": "configuration"
+  },
+  "triaging_steps": [
+    {
+      "step_id": 1,
+      "action": "Retrieve the current configuration snapshot for the drifted resource from CMDB",
+      "tool": "mcp_client",
+      "tool_params": {
+        "server_url": "http://mcp-cmdb-server:8080",
+        "tool_name": "read_resource_config",
+        "arguments": {
+          "resource_id": "{host}",
+          "include_attributes": "all"
+        }
+      }
+    },
+    {
+      "step_id": 2,
+      "action": "List recent change records associated with the resource",
+      "tool": "mcp_client",
+      "tool_params": {
+        "server_url": "http://mcp-cmdb-server:8080",
+        "tool_name": "list_change_records",
+        "arguments": {
+          "resource_id": "{host}",
+          "since_hours": 48
+        }
+      }
+    },
+    {
+      "step_id": 3,
+      "action": "Fetch the approved baseline configuration from CMDB for comparison",
+      "tool": "mcp_client",
+      "tool_params": {
+        "server_url": "http://mcp-cmdb-server:8080",
+        "tool_name": "query_baseline_config",
+        "arguments": {
+          "resource_id": "{host}",
+          "environment": "production"
+        }
+      }
+    },
+    {
+      "step_id": 4,
+      "action": "Search for open incidents or problem records linked to the drifted resource",
+      "tool": "mcp_client",
+      "tool_params": {
+        "server_url": "http://mcp-cmdb-server:8080",
+        "tool_name": "search_linked_incidents",
+        "arguments": {
+          "resource_id": "{host}",
+          "status_filter": "open"
+        }
+      }
+    }
+  ],
+  "communication_steps": [
+    {
+      "channel": "teams",
+      "template": "alert_rca_notification",
+      "recipients": ["change-management-team", "infra-sre-team"]
+    }
+  ]
+}

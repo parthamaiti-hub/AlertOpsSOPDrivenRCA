@@ -1,0 +1,14 @@
+SOP: Database Connection Pool Exhaustion
+
+1. SOP Definition
+This SOP addresses database connection pool exhaustion alerts. It applies when active connections approach or exceed the maximum pool size, causing connection wait queues to grow. This typically affects payment gateways, order processing, and other database-intensive services.
+
+2. Triaging Steps
+Step 1: Query Splunk for database connection errors and timeout logs on the affected service.
+Step 2: Query Prometheus for active database connections and pool utilization metrics over the past hour.
+Step 3: Query Prometheus for database query duration to identify slow queries holding connections.
+Step 4: Perform a health check on the database endpoint to verify database responsiveness.
+Step 5: Analyze whether the issue is caused by slow queries, connection leaks, traffic surge, or undersized pool configuration.
+
+3. Communication
+Notify the database operations team and application owners via Teams with connection pool status, identified slow queries, and remediation steps.

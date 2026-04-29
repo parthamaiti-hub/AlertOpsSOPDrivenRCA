@@ -1,0 +1,14 @@
+{
+  "source_application": "order-service",
+  "domain": "infrastructure",
+  "category": "performance",
+  "severity": "critical",
+  "sop_identifier_keys": ["high_cpu", "app_server"],
+  "raw_payload": {
+    "host": "prod-app-01",
+    "cpu_percent": 98.5,
+    "duration_minutes": 15,
+    "timestamp": "2026-04-10T10:30:00Z",
+    "alert_source": "prometheus-alertmanager"
+  }
+}

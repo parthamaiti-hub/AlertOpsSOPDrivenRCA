@@ -1,0 +1,29 @@
+extract_classifiers: |
+  You are a classifier extraction agent. Given the following alert text, extract these classifier fields:
+  {field_names}
+
+  For each field, return the most likely value based on the alert content.
+  Also extract standard classifiers: application, domain, category, severity, sop_identifier_keys.
+
+  Alert text:
+  {alert_text}
+
+  Return ONLY valid JSON with this structure (no markdown, no explanation):
+  {{
+    "application": "...",
+    "domain": "...",
+    "category": "...",
+    "severity": "...",
+    "sop_identifier_keys": ["..."],
+    "dynamic_fields": {{
+      "field_name_1": "value_1",
+      "field_name_2": "value_2"
+    }}
+  }}
+
+select_sop: |
+  Given alert classifier: application={application}, domain={domain}, category={category}, severity={severity}, keys={sop_keys}
+  Dynamic classifiers extracted from alert: {dynamic_fields}
+  SOP matches from RAG (with mapping scores):
+  {match_info}
+  Return ONLY the sop_id of the best match. Prefer higher mapping_score.

@@ -1,0 +1,55 @@
+{
+  "sop_id": "SOP_DISK_SPACE_FULL_LINUX",
+  "alert_identifier": {
+    "application": "container-platform",
+    "domain": "infrastructure",
+    "category": "disk"
+  },
+  "triaging_steps": [
+    {
+      "step_id": 1,
+      "action": "Query for disk space errors and filesystem warnings",
+      "tool": "splunk_query",
+      "tool_params": {
+        "query": "index=sys_logs host={host} (\"No space left\" OR \"disk full\" OR \"filesystem\" OR \"ENOSPC\") earliest=-6h",
+        "time_range": "6h"
+      }
+    },
+    {
+      "step_id": 2,
+      "action": "Check disk utilization trend across mount points",
+      "tool": "prometheus_query",
+      "tool_params": {
+        "query": "100 - (node_filesystem_avail_bytes{instance='{host}'} / node_filesystem_size_bytes{instance='{host}'} * 100)",
+        "step": "300s",
+        "duration": "6h"
+      }
+    },
+    {
+      "step_id": 3,
+      "action": "Check disk I/O throughput",
+      "tool": "prometheus_query",
+      "tool_params": {
+        "query": "rate(node_disk_written_bytes_total{instance='{host}'}[5m])",
+        "step": "60s",
+        "duration": "2h"
+      }
+    },
+    {
+      "step_id": 4,
+      "action": "Verify application health",
+      "tool": "health_check",
+      "tool_params": {
+        "url": "https://{host}:8080/health",
+        "timeout": 10
+      }
+    }
+  ],
+  "communication_steps": [
+    {
+      "channel": "teams",
+      "template": "alert_rca_notification",
+      "recipients": ["infra-team", "sre-oncall"]
+    }
+  ]
+}

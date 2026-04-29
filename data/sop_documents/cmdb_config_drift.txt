@@ -1,0 +1,14 @@
+SOP: CMDB Configuration Drift Detected
+
+1. SOP Definition
+This SOP addresses configuration drift alerts raised when a running system's actual configuration diverges from its approved baseline stored in the CMDB (Configuration Management Database). It applies when the CMDB drift detection agent flags one or more resources in production as out-of-compliance. Common root causes include manual hotfixes applied directly to servers, unauthorized package installs, config file modifications outside change management, or infrastructure-as-code drift after partial applies.
+
+2. Triaging Steps
+Step 1: Query the CMDB MCP server to retrieve the full configuration snapshot for the affected resource, including all attributes that are reported as drifted.
+Step 2: Query the CMDB MCP server to list all recent change records associated with the resource to identify if a legitimate change was applied without updating the CMDB baseline.
+Step 3: Query the CMDB MCP server to fetch the approved baseline configuration for the resource for side-by-side comparison with the current state.
+Step 4: Query the CMDB MCP server for any open incidents or problem records linked to the drifted resource to determine if this drift is a known side effect of an ongoing incident.
+Step 5: Analyze the drift data. Determine if the change is authorized (update CMDB baseline) or unauthorized (raise incident, initiate rollback via change management process).
+
+3. Communication
+Notify the change management team and infrastructure SRE via Teams channel with the drifted resource identifier, attribute-level diff, assessment of authorization status, and recommended remediation action.

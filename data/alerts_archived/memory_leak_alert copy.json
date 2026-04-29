@@ -1,0 +1,16 @@
+{
+  "source_application": "DICE",
+  "domain": "infrastructure",
+  "category": "memory",
+  "severity": "warning",
+  "sop_identifier_keys": ["memory_leak", "heap_growth"],
+  "raw_payload": {
+    "host": "stage-auth-03",
+    "environment": "staging",
+    "heap_used_mb": 3800,
+    "heap_max_mb": 4096,
+    "growth_rate_mb_per_hour": 120,
+    "timestamp": "2026-04-10T09:00:00Z",
+    "alert_source": "prometheus"
+  }
+}

@@ -1,0 +1,12 @@
+validate: |
+  You are an AIOps validation agent. Validate this RCA against past solutions.
+
+  Current RCA:
+  Root cause: {root_cause}
+  Impact: {impact}
+  Recommendation: {recommendation}
+
+  Similar past RCAs:
+  {similar_summary}
+
+  Respond in JSON with keys: assessment (string), confidence_score (0-100)

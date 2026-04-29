@@ -1,0 +1,14 @@
+SOP: API Gateway GraphQL Error Spike
+
+1. SOP Definition
+This SOP addresses a sudden spike in GraphQL errors reported by the API gateway. It applies when the GraphQL error rate exceeds 5% of total requests over a 5-minute window on any production API gateway instance. Common root causes include schema mismatches after a deployment, upstream service timeouts surfacing as GraphQL errors, resolver exceptions, or malformed client queries flooding the gateway.
+
+2. Triaging Steps
+Step 1: Query the GraphQL API observability endpoint to retrieve current service metrics including error rate, p99 latency, and throughput, confirming the spike magnitude and its onset time.
+Step 2: Query the GraphQL API for recent deployment and pod status to detect if a recent rollout introduced breaking schema changes or unstable replicas.
+Step 3: Query Prometheus for the HTTP error rate on the API gateway over the last 2 hours to correlate with the GraphQL error timeline.
+Step 4: Perform a health check on the GraphQL endpoint to verify the gateway is reachable and returning a valid response.
+Step 5: Analyze the collected data to determine whether the root cause is a schema regression, upstream dependency failure, or client-side query abuse. Identify the onset time and affected operations.
+
+3. Communication
+Notify the API platform team and SRE team via Teams channel with RCA summary, affected operations, error rate trend, and recommended action (rollback, upstream escalation, or query rate limiting).

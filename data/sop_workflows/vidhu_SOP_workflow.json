@@ -1,0 +1,117 @@
+{
+    "sop_id": "SOP_DISK_CLEANUP",
+  
+   
+  
+    "alert_identifier": {
+      "application": "linux-servers",
+      "domain": "infrastructure",
+      "category": "disk_space",
+      "severity": ["high", "critical"],
+      "sop_identifier_keys": ["disk_full", "no_space_left", "disk_usage"]
+    },
+  
+   
+  
+    "triaging_steps": [
+      {
+        "step_id": 1,
+        "action": "Query disk usage metrics",
+        "tool": "prometheus_query",
+        "tool_params": {
+          "query": "node_filesystem_avail_bytes{instance='{host}'} / node_filesystem_size_bytes{instance='{host}'} * 100",
+          "step": "60s",
+          "duration": "1h"
+        }
+      },
+      {
+        "step_id": 2,
+        "action": "Check disk-related error logs",
+        "tool": "splunk_query",
+        "tool_params": {
+          "query": "index=syslog host={host} (\"disk full\" OR \"no space left\" OR \"out of inodes\")",
+          "time_range": "1h"
+        }
+      },
+      {
+        "step_id": 3,
+        "action": "Identify large files consuming space",
+        "tool": "ssh_command",
+        "tool_params": {
+          "command": "du -ah /var/log | sort -rh | head -20",
+          "host": "{host}",
+          "timeout": 30
+        }
+      },
+      {
+        "step_id": 4,
+        "action": "Check running processes writing to disk",
+        "tool": "ssh_command",
+        "tool_params": {
+          "command": "lsof +D /var/log | head -20",
+          "host": "{host}",
+          "timeout": 30
+        }
+      },
+      {
+        "step_id": 5,
+        "action": "Analyze collected data to determine root cause",
+        "tool": "llm_analysis",
+        "tool_params": {
+          "context": ["step_1_output", "step_2_output", "step_3_output", "step_4_output"],
+          "prompt": "Analyze disk usage data and identify root cause: runaway logs, large files, or application issue"
+        }
+      }
+    ],
+  
+   
+  
+    "remediation_steps": [
+      {
+        "step_id": 6,
+        "action": "Cleanup old log files",
+        "tool": "ssh_command",
+        "tool_params": {
+          "command": "find /var/log -type f -name '*.log.*' -mtime +7 -delete",
+          "host": "{host}"
+        },
+        "condition": "disk_usage >= 90",
+        "requires_approval": false
+      },
+      {
+        "step_id": 7,
+        "action": "Clear tmp files",
+        "tool": "ssh_command",
+        "tool_params": {
+          "command": "find /tmp -type f -mtime +3 -delete",
+          "host": "{host}"
+        },
+        "condition": "disk_usage >= 95",
+        "requires_approval": false
+      }
+    ],
+  
+   
+  
+    "communication_steps": [
+      {
+        "channel": "teams",
+        "template": "alert_rca_notification",
+        "recipients": ["infra-ops-team"],
+        "include": ["rca_summary", "impact_assessment", "remediation_steps"]
+      }
+    ],
+  
+   
+  
+    "escalation": {
+      "on_failure": {
+        "channel": "servicenow",
+        "template": "incident_creation",
+        "priority": "high",
+        "assignment_group": "infra-ops-team"
+      }
+    }
+  }
+  
+   

@@ -1,0 +1,55 @@
+{
+  "sop_id": "SOP_N1_TMOApp1_AuthError",
+  "alert_identifier": {
+    "application": "user-auth-service",
+    "domain": "infrastructure",
+    "category": "memory"
+  },
+  "triaging_steps": [
+    {
+      "step_id": 1,
+      "action": "Query for OutOfMemory and GC errors",
+      "tool": "splunk_query",
+      "tool_params": {
+        "query": "index=app_logs host={host} (\"OutOfMemoryError\" OR \"GC overhead\" OR \"heap space\") earliest=-6h",
+        "time_range": "6h"
+      }
+    },
+    {
+      "step_id": 2,
+      "action": "Check heap memory usage trend",
+      "tool": "prometheus_query",
+      "tool_params": {
+        "query": "jvm_memory_used_bytes{area='heap', instance='{host}'}",
+        "step": "300s",
+        "duration": "6h"
+      }
+    },
+    {
+      "step_id": 3,
+      "action": "Check GC frequency and pause duration",
+      "tool": "prometheus_query",
+      "tool_params": {
+        "query": "rate(jvm_gc_pause_seconds_sum{instance='{host}'}[5m])",
+        "step": "60s",
+        "duration": "2h"
+      }
+    },
+    {
+      "step_id": 4,
+      "action": "Verify service availability",
+      "tool": "health_check",
+      "tool_params": {
+        "url": "https://{host}:8080/health",
+        "timeout": 10
+      }
+    }
+  ],
+  "communication_steps": [
+    {
+      "channel": "teams",
+      "template": "alert_rca_notification",
+      "recipients": ["dev-team", "sre-team"]
+    }
+  ]
+}

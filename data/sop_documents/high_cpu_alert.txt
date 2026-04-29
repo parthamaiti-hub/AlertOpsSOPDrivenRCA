@@ -1,0 +1,14 @@
+SOP: High CPU Alert - Application Server
+
+1. SOP Definition
+This SOP addresses high CPU utilization alerts on application servers. It applies when CPU usage exceeds 90% for more than 10 minutes on any production application server node. Common root causes include thread pool exhaustion, runaway garbage collection, inefficient code paths, or sudden traffic spikes.
+
+2. Triaging Steps
+Step 1: Query Splunk for application error logs on the affected host within the last hour to identify error patterns, stack traces, or repeated exceptions.
+Step 2: Query Prometheus for CPU utilization trend over the past hour to determine if the spike is sudden or gradual.
+Step 3: Query Prometheus for request latency percentiles (p99) to assess user impact.
+Step 4: Perform a health check on the application endpoint to verify service availability.
+Step 5: Analyze collected data to determine root cause - thread pool exhaustion, memory pressure, traffic spike, or code regression.
+
+3. Communication
+Notify the operations team via Teams channel with RCA summary, impact assessment, and recommended remediation steps.

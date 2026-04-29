@@ -1,0 +1,73 @@
+{
+  "sop_id": "SOP_NODE_DISK_CLEANUP",
+  "alert_identifier": {
+    "application": "infrastructure",
+    "domain": "infrastructure",
+    "category": "disk"
+  },
+  "triaging_steps": [
+    {
+      "step_id": 1,
+      "action": "Run df -h to confirm disk utilization across all filesystems",
+      "tool": "shell_script",
+      "tool_params": {
+        "script": "df -h",
+        "args": {
+          "host": "{host}"
+        }
+      }
+    },
+    {
+      "step_id": 2,
+      "action": "Identify processes with open file handles to large or deleted files",
+      "tool": "shell_script",
+      "tool_params": {
+        "script": "lsof +D / 2>/dev/null | sort -k 7 -rn | head -30",
+        "args": {
+          "host": "{host}"
+        }
+      }
+    },
+    {
+      "step_id": 3,
+      "action": "Find top disk-consuming directories",
+      "tool": "shell_script",
+      "tool_params": {
+        "script": "du -sh /* 2>/dev/null | sort -rh | head -20",
+        "args": {
+          "host": "{host}"
+        }
+      }
+    },
+    {
+      "step_id": 4,
+      "action": "Clean up rotated log files older than 7 days in /var/log",
+      "tool": "shell_script",
+      "tool_params": {
+        "script": "find /var/log -type f \\( -name '*.gz' -o -name '*.1' -o -name '*.2' \\) -mtime +7 -delete; echo 'Log cleanup complete'",
+        "args": {
+          "host": "{host}"
+        }
+      }
+    },
+    {
+      "step_id": 5,
+      "action": "Re-check disk utilization after cleanup to confirm free space recovered",
+      "tool": "shell_script",
+      "tool_params": {
+        "script": "df -h",
+        "args": {
+          "host": "{host}",
+          "phase": "post-cleanup"
+        }
+      }
+    }
+  ],
+  "communication_steps": [
+    {
+      "channel": "teams",
+      "template": "alert_rca_notification",
+      "recipients": ["infra-ops-team", "sre-team"]
+    }
+  ]
+}

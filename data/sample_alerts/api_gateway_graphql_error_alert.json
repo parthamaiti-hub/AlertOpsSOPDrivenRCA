@@ -1,0 +1,16 @@
+{
+  "alert_text": "ALERT: GraphQL Error Rate Spike on api-gateway-prod-01\n\nSeverity: High\nTimestamp: 2026-05-10T09:45:00Z\nSource: Datadog APM\n\nThe API gateway instance api-gateway-prod-01 is reporting a GraphQL error rate of 8.4% over the last 5 minutes, exceeding the 5% threshold. The application is api-gateway running in the production environment in the us-east-1 AWS region. The service tier is tier-1. Recent deployment was performed 35 minutes ago (v2.14.1). Errors are concentrated on the orders query resolver and the userProfile mutation. Upstream service latency has increased to p99=1820ms. The protocol is graphql and the alert source is datadog. Host type is api-gateway.",
+  "raw_payload": {
+    "host": "api-gateway-prod-01",
+    "alert_source": "datadog",
+    "application": "api-gateway",
+    "domain": "api",
+    "category": "errors",
+    "severity": "high",
+    "environment": "production",
+    "region": "us-east-1",
+    "error_rate_percent": 8.4,
+    "affected_operations": ["ordersQuery", "userProfileMutation"],
+    "last_deployment": "v2.14.1"
+  }
+}

@@ -1,0 +1,46 @@
+{
+  "description": "Level 2 retry - SOP identification previously failed (SOPNotFound). Re-run classifier from stage1_identify queue with same alert.",
+  "retry_level": "level2",
+  "expected_queue": "stage1_identify",
+  "precondition_summary": "Alert exists with processing_status=SOPNotFound. No sop_workflow_id. Re-classify with updated RAG DB.",
+  "alert": {
+    "source_application": "user-auth-service",
+    "domain": "infrastructure",
+    "category": "memory",
+    "severity": "warning",
+    "sop_identifier_keys": ["memory_leak", "heap_growth"],
+    "alert_type": "structured",
+    "status": "ingested",
+    "processing_status": "SOPNotFound",
+    "sop_document_id": null,
+    "sop_workflow_id": null,
+    "sop_id": null,
+    "latest_effective_rca_id": null,
+    "retry_in_progress": false,
+    "retry_attempt_count": 1,
+    "raw_payload": {
+      "host": "prod-auth-03",
+      "heap_used_mb": 3800,
+      "heap_max_mb": 4096,
+      "growth_rate_mb_per_hour": 120,
+      "timestamp": "2026-04-25T09:00:00Z",
+      "alert_source": "grafana",
+      "environment": "staging",
+      "region": "eu-west-1"
+    }
+  },
+  "supporting_docs": {
+    "sop_workflow": null,
+    "rca_result": null,
+    "validation_result": null
+  },
+  "expected_outcome": {
+    "accepted": true,
+    "queue": "stage1_identify",
+    "soft_invalidation": {
+      "rca_results_cleared": true,
+      "validation_results_cleared": true,
+      "sop_fields_cleared": false
+    }
+  }
+}
