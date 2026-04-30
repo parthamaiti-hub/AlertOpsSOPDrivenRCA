@@ -51,7 +51,7 @@ async def lifespan(app: FastAPI):
     yield
 
 
-app = FastAPI(title="SOP Driven Alert Analytics", lifespan=lifespan)
+app = FastAPI(title="AIOps Alert Analytics with SOP-driven RCA", lifespan=lifespan)
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
 app.include_router(alerts.router)

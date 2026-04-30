@@ -80,14 +80,6 @@ def sop_mappings_col_sync():
     return get_sync_db()["sop_mappings"]
 
 
-def tools_col_sync():
-    return get_sync_db()["tools"]
-
-
-def tools_history_col_sync():
-    return get_sync_db()["tools_history"]
-
-
 def prompts_col():
     return get_db()["prompts"]
 
@@ -120,9 +112,17 @@ def retry_stage_events_col_sync():
     return get_sync_db()["retry_stage_events"]
 
 
-def sop_mapping_history_col():
-    return get_db()["sop_mapping_history"]
+def tools_col():
+    return get_db()["tools"]
 
 
-def sop_mapping_history_col_sync():
-    return get_sync_db()["sop_mapping_history"]
+def tools_col_sync():
+    return get_sync_db()["tools"]
+
+
+def tools_history_col():
+    return get_db()["tools_history"]
+
+
+def tools_history_col_sync():
+    return get_sync_db()["tools_history"]

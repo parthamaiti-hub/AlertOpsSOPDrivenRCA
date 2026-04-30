@@ -5,12 +5,6 @@ from datetime import UTC, datetime
 
 from backend.identifySOP.rag import index_sop_document, is_sop_indexed
 from backend.models.database import get_sync_db
-from backend.sopmanagement.version_utils import (
-    get_next_valid_versions,
-    is_valid_progression,
-    validate_version_format,
-    version_tuple,
-)
 
 logger = logging.getLogger(__name__)
 
@@ -66,46 +60,6 @@ def seed_all() -> list[dict]:
 
     mappings = load_mappings()
     results = []
-
-    # ── Backfill version fields on legacy sop_mappings records ─────────────
-    # Idempotent: only updates records where sop_document_version is absent.
-    legacy = list(sop_mappings_col.find({"sop_document_version": {"$exists": False}}))
-    if legacy:
-        for leg in legacy:
-            created_at = leg.get("created_at", datetime.now(UTC))
-            sop_mappings_col.update_one(
-                {"_id": leg["_id"]},
-                {"$set": {
-                    "sop_document_version": "1.0",
-                    "workflow_version": "1.0",
-                    "mapping_version_created_at": created_at,
-                    "change_type": "new_sop",
-                    "changed_by": "system",
-                }},
-            )
-        logger.info("Backfilled version fields on %d legacy sop_mappings record(s).", len(legacy))
-
-    # ── Bootstrap sop_mapping_history for mappings with no history entry ────
-    # Ensures the collection exists and every SOP has at least one history record.
-    history_col = db["sop_mapping_history"]
-    all_mappings = list(sop_mappings_col.find({}))
-    for m in all_mappings:
-        sop_id_m = m.get("sop_id", "")
-        if not sop_id_m:
-            continue
-        if history_col.find_one({"sop_id": sop_id_m}):
-            continue  # already has history
-        snapshot = {k: str(v) if k == "_id" else v for k, v in m.items() if k != "_id"}
-        history_col.insert_one({
-            "sop_id": sop_id_m,
-            "sop_document_version": m.get("sop_document_version", "1.0"),
-            "workflow_version": m.get("workflow_version", "1.0"),
-            "archived_at": m.get("created_at", datetime.now(UTC)),
-            "change_type": "initial",
-            "changed_by": "system",
-            "snapshot": snapshot,
-        })
-    logger.info("Bootstrapped sop_mapping_history for %d SOP(s) with no prior history.", len(all_mappings))
 
     # Remove stale sop_mapping records whose sop_document_file is no longer in
     # sop_mappingdata.json (covers any source, including legacy records with no source field).
@@ -238,7 +192,6 @@ def seed_all() -> list[dict]:
         workflow_id = str(wf_result.inserted_id)
 
         # Persist mapping record
-        now = datetime.now(UTC)
         mapping_record = {
             "sop_document_file": sop_doc_filename,
             "workflow_file": meta["workflow_file"],
@@ -252,12 +205,7 @@ def seed_all() -> list[dict]:
             "sop_document_id": doc_id,
             "workflow_id": workflow_id,
             "source": "file",
-            "sop_document_version": "1.0",
-            "workflow_version": "1.0",
-            "mapping_version_created_at": now,
-            "change_type": "new_sop",
-            "changed_by": "system",
-            "created_at": now,
+            "created_at": datetime.now(UTC),
         }
         sop_mappings_col.insert_one(mapping_record)
 
@@ -312,44 +260,12 @@ def get_all_mappings() -> list[dict]:
     return docs
 
 
-def get_active_mapping(sop_id: str) -> dict | None:
-    """Return the active (highest sop_document_version) mapping for sop_id."""
+def get_mapping_by_sop_id(sop_id: str) -> dict | None:
+    """Return a single mapping record by sop_id."""
     db = get_sync_db()
     col = db["sop_mappings"]
-    docs = list(col.find({"sop_id": sop_id}))
-    if not docs:
-        return None
-    docs.sort(
-        key=lambda d: version_tuple(d.get("sop_document_version", "1.0")),
-        reverse=True,
-    )
-    doc = docs[0]
-    doc["_id"] = str(doc["_id"])
+    doc = col.find_one({"sop_id": sop_id}, {"_id": 0})
     return doc
-
-
-def get_mapping_by_sop_id(sop_id: str) -> dict | None:
-    """Return the active mapping record for sop_id (highest version)."""
-    mapping = get_active_mapping(sop_id)
-    if mapping:
-        mapping.pop("_id", None)
-    return mapping
-
-
-def _archive_mapping(mapping: dict, change_type: str) -> None:
-    """Snapshot the given mapping into sop_mapping_history (append-only)."""
-    db = get_sync_db()
-    history_col = db["sop_mapping_history"]
-    snapshot = {k: v for k, v in mapping.items() if k != "_id"}
-    history_col.insert_one({
-        "sop_id": mapping.get("sop_id", ""),
-        "sop_document_version": mapping.get("sop_document_version", "1.0"),
-        "workflow_version": mapping.get("workflow_version", "1.0"),
-        "archived_at": datetime.now(UTC),
-        "change_type": change_type,
-        "changed_by": "system",
-        "snapshot": snapshot,
-    })
 
 
 def create_sop_mapping(
@@ -364,20 +280,12 @@ def create_sop_mapping(
     workflow_data: dict,
     workflow_filename: str,
     dynamic_classifiers: list[dict] | None = None,
-    sop_document_version: str = "1.0",
-    workflow_version: str = "1.0",
 ) -> dict:
     """Create a new SOP mapping with document, workflow, and ChromaDB entry.
 
-    Raises ValueError if sop_id already exists in sop_mappings, or if the
-    provided version strings are not valid x.y format.
+    Raises ValueError if sop_id already exists in sop_mappings.
     The sop_id field in workflow_data is overridden to match the provided sop_id.
     """
-    if not validate_version_format(sop_document_version):
-        raise ValueError(f"Invalid sop_document_version '{sop_document_version}': must be x.y format")
-    if not validate_version_format(workflow_version):
-        raise ValueError(f"Invalid workflow_version '{workflow_version}': must be x.y format")
-
     db = get_sync_db()
     sop_docs_col = db["sop_documents"]
     sop_wf_col = db["sop_workflows"]
@@ -390,7 +298,6 @@ def create_sop_mapping(
     # Override sop_id in workflow data with the canonical value
     workflow_data = {**workflow_data, "sop_id": sop_id}
 
-    now = datetime.now(UTC)
     doc = {
         "name": name,
         "application": application,
@@ -398,7 +305,7 @@ def create_sop_mapping(
         "category": category,
         "severity": severity,
         "content": doc_content,
-        "created_at": now,
+        "created_at": datetime.now(UTC),
     }
     doc_result = sop_docs_col.insert_one(doc)
     doc_id = str(doc_result.inserted_id)
@@ -428,136 +335,16 @@ def create_sop_mapping(
         "sop_document_id": doc_id,
         "workflow_id": workflow_id,
         "source": "ui",
-        "sop_document_version": sop_document_version,
-        "workflow_version": workflow_version,
-        "mapping_version_created_at": now,
-        "change_type": "new_sop",
-        "changed_by": "system",
-        "created_at": now,
+        "created_at": datetime.now(UTC),
     }
     sop_mappings_col.insert_one(mapping_record)
 
-    logger.info("Created SOP mapping: %s (doc_v=%s wf_v=%s)", sop_id, sop_document_version, workflow_version)
+    logger.info("Created SOP mapping: %s", sop_id)
     return {
         "sop_id": sop_id,
         "sop_document_id": doc_id,
         "workflow_id": workflow_id,
-        "sop_document_version": sop_document_version,
-        "workflow_version": workflow_version,
         "status": "created",
-    }
-
-
-def create_sop_version(
-    sop_id: str,
-    doc_content: str,
-    doc_filename: str,
-    workflow_data: dict,
-    workflow_filename: str,
-    sop_document_version: str,
-    workflow_version: str,
-) -> dict:
-    """Upload a new version of an existing SOP mapping.
-
-    Validates that both proposed versions are valid progressions from the
-    current highest. Archives the current active mapping, then creates new
-    sop_documents, sop_workflows, and sop_mappings records.
-    Raises ValueError on invalid versions or if sop_id not found.
-    """
-    if not validate_version_format(sop_document_version):
-        raise ValueError(f"Invalid sop_document_version '{sop_document_version}': must be x.y format")
-    if not validate_version_format(workflow_version):
-        raise ValueError(f"Invalid workflow_version '{workflow_version}': must be x.y format")
-
-    active = get_active_mapping(sop_id)
-    if not active:
-        raise ValueError(f"SOP ID '{sop_id}' not found")
-
-    current_doc_v = active.get("sop_document_version", "1.0")
-    current_wf_v = active.get("workflow_version", "1.0")
-
-    if not is_valid_progression(current_doc_v, sop_document_version):
-        minor_bump, major_bump = get_next_valid_versions(current_doc_v)
-        raise ValueError(
-            f"Invalid sop_document_version '{sop_document_version}': "
-            f"from {current_doc_v} only {minor_bump} or {major_bump} are allowed"
-        )
-    if not is_valid_progression(current_wf_v, workflow_version):
-        minor_bump, major_bump = get_next_valid_versions(current_wf_v)
-        raise ValueError(
-            f"Invalid workflow_version '{workflow_version}': "
-            f"from {current_wf_v} only {minor_bump} or {major_bump} are allowed"
-        )
-
-    db = get_sync_db()
-    sop_docs_col = db["sop_documents"]
-    sop_wf_col = db["sop_workflows"]
-    sop_mappings_col = db["sop_mappings"]
-
-    # Archive current active mapping before creating new version
-    _archive_mapping(active, "new_version")
-
-    now = datetime.now(UTC)
-    # Carry forward classifier metadata from active mapping
-    doc = {
-        "name": active.get("name", ""),
-        "application": active.get("application", ""),
-        "domain": active.get("domain", ""),
-        "category": active.get("category", ""),
-        "severity": active.get("severity", ""),
-        "content": doc_content,
-        "created_at": now,
-    }
-    doc_result = sop_docs_col.insert_one(doc)
-    doc_id = str(doc_result.inserted_id)
-
-    dynamic_classifiers = active.get("dynamic_classifiers", [])
-    chroma_content = doc_content + _build_dynamic_text(dynamic_classifiers)
-    index_sop_document(sop_id, chroma_content, {
-        "application": active.get("application", ""),
-        "domain": active.get("domain", ""),
-        "category": active.get("category", ""),
-        "severity": active.get("severity", ""),
-        "sop_document_id": doc_id,
-    })
-
-    wf_data = {**{k: v for k, v in workflow_data.items() if k != "_id"}, "sop_id": sop_id}
-    wf_result = sop_wf_col.insert_one(wf_data)
-    workflow_id = str(wf_result.inserted_id)
-
-    mapping_record = {
-        "sop_document_file": doc_filename,
-        "workflow_file": workflow_filename,
-        "sop_id": sop_id,
-        "name": active.get("name", ""),
-        "application": active.get("application", ""),
-        "domain": active.get("domain", ""),
-        "category": active.get("category", ""),
-        "severity": active.get("severity", ""),
-        "dynamic_classifiers": dynamic_classifiers,
-        "sop_document_id": doc_id,
-        "workflow_id": workflow_id,
-        "source": active.get("source", "ui"),
-        "sop_document_version": sop_document_version,
-        "workflow_version": workflow_version,
-        "mapping_version_created_at": now,
-        "change_type": "new_version",
-        "changed_by": "system",
-        "created_at": now,
-    }
-    sop_mappings_col.insert_one(mapping_record)
-
-    logger.info(
-        "Created new version for SOP %s (doc_v=%s wf_v=%s)",
-        sop_id, sop_document_version, workflow_version,
-    )
-    return {
-        "sop_id": sop_id,
-        "sop_document_id": doc_id,
-        "workflow_id": workflow_id,
-        "sop_document_version": sop_document_version,
-        "workflow_version": workflow_version,
-        "status": "new_version_created",
     }
 
 
@@ -604,75 +391,35 @@ def update_classifier(sop_id: str, fields: dict) -> dict:
 
 
 def get_workflow_by_sop_id(sop_id: str) -> dict | None:
-    """Return the workflow JSON for the active (highest-version) mapping of sop_id."""
-    active = get_active_mapping(sop_id)
-    if not active:
-        return None
-    workflow_id = active.get("workflow_id")
-    if not workflow_id:
-        return None
-    from bson import ObjectId
+    """Return the workflow JSON dict from sop_workflows for the given sop_id."""
     db = get_sync_db()
-    doc = db["sop_workflows"].find_one({"_id": ObjectId(workflow_id)})
+    col = db["sop_workflows"]
+    doc = col.find_one({"sop_id": sop_id})
     if not doc:
         return None
-    doc["_id"] = str(doc["_id"])
+    if "_id" in doc:
+        doc["_id"] = str(doc["_id"])
     return doc
 
 
-def update_workflow(sop_id: str, workflow_data: dict) -> str:
-    """Save edited workflow JSON, auto-incrementing workflow minor version.
+def update_workflow(sop_id: str, workflow_data: dict) -> None:
+    """Replace the workflow document in sop_workflows for the given sop_id.
 
-    Archives the current active mapping to sop_mapping_history, inserts a new
-    sop_workflows record with the bumped version, and updates the mapping record.
-    Returns the new workflow version string.
-    Raises ValueError if sop_id not found.
+    Preserves the existing MongoDB _id. Raises ValueError if sop_id not found.
     """
-    active = get_active_mapping(sop_id)
-    if not active:
+    db = get_sync_db()
+    col = db["sop_workflows"]
+
+    existing = col.find_one({"sop_id": sop_id}, {"_id": 1})
+    if not existing:
         raise ValueError(f"Workflow for SOP ID '{sop_id}' not found")
 
-    current_wf_v = active.get("workflow_version", "1.0")
-    minor_bump, _ = get_next_valid_versions(current_wf_v)
-    new_wf_version = minor_bump
+    # Remove _id from incoming data so it doesn't conflict
+    data = {k: v for k, v in workflow_data.items() if k != "_id"}
+    data["sop_id"] = sop_id  # Ensure canonical sop_id is preserved
 
-    # Archive current active mapping
-    _archive_mapping(active, "workflow_edit")
-
-    db = get_sync_db()
-    sop_wf_col = db["sop_workflows"]
-    sop_mappings_col = db["sop_mappings"]
-
-    # Insert new workflow document
-    wf_data = {**{k: v for k, v in workflow_data.items() if k != "_id"}, "sop_id": sop_id}
-    wf_result = sop_wf_col.insert_one(wf_data)
-    new_workflow_id = str(wf_result.inserted_id)
-
-    # Update the active mapping record in-place (it remains the highest version)
-    from bson import ObjectId
-    now = datetime.now(UTC)
-    sop_mappings_col.update_one(
-        {"_id": ObjectId(active["_id"])},
-        {"$set": {
-            "workflow_version": new_wf_version,
-            "workflow_id": new_workflow_id,
-            "mapping_version_created_at": now,
-            "change_type": "workflow_edit",
-        }},
-    )
-
-    logger.info("Updated workflow for SOP %s: wf_v %s -> %s", sop_id, current_wf_v, new_wf_version)
-    return new_wf_version
-
-
-def get_mapping_history(sop_id: str) -> list[dict]:
-    """Return archived mapping history for sop_id, newest first."""
-    db = get_sync_db()
-    col = db["sop_mapping_history"]
-    docs = list(
-        col.find({"sop_id": sop_id}, {"_id": 0}).sort("archived_at", -1)
-    )
-    return docs
+    col.replace_one({"_id": existing["_id"]}, data)
+    logger.info("Updated workflow for SOP: %s", sop_id)
 
 
 def update_doc_file(sop_id: str, doc_content: str, doc_filename: str) -> None:

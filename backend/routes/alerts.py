@@ -130,6 +130,92 @@ async def list_alerts(
     return {"alerts": alerts, "total": total}
 
 
+@router.get("/stats")
+async def get_alert_stats(
+    application: str | None = None,
+    domain: str | None = None,
+    category: str | None = None,
+    severity: str | None = None,
+    sop_id: str | None = None,
+    processing_status: str | None = None,
+    feedback_received: bool | None = None,
+    root_cause: str | None = None,
+    date_from: str | None = None,
+    date_to: str | None = None,
+    alert_id: str | None = None,
+):
+    query: dict = {}
+    if alert_id:
+        try:
+            query["_id"] = ObjectId(alert_id)
+        except Exception:
+            pass
+    if application:
+        query["source_application"] = {"$regex": application, "$options": "i"}
+    if domain:
+        query["domain"] = {"$regex": domain, "$options": "i"}
+    if category:
+        query["category"] = {"$regex": category, "$options": "i"}
+    if severity:
+        query["severity"] = severity
+    if sop_id:
+        query["$or"] = [
+            {"sop_id": {"$regex": sop_id, "$options": "i"}},
+            {"sop_document_id": {"$regex": sop_id, "$options": "i"}},
+            {"sop_identifier_keys": {"$regex": sop_id, "$options": "i"}},
+        ]
+    if processing_status:
+        query["processing_status"] = processing_status
+    if feedback_received is not None:
+        query["feedback_received"] = feedback_received
+    if date_from or date_to:
+        date_filter: dict = {}
+        if date_from:
+            date_filter["$gte"] = datetime.fromisoformat(date_from)
+        if date_to:
+            date_filter["$lte"] = datetime.fromisoformat(date_to + "T23:59:59")
+        query["created_at"] = date_filter
+
+    failed_statuses = ["SOPNotFound", "RCANotFound", "RCANotValidated", "sop_workflow_processfailed"]
+
+    pipeline = [
+        {"$match": query},
+        {"$facet": {
+            "by_status": [{"$group": {"_id": "$processing_status", "count": {"$sum": 1}}}],
+            "mean_time": [
+                {"$match": {"processed_at": {"$exists": True}, "created_at": {"$exists": True}}},
+                {"$project": {"diff_ms": {"$subtract": ["$processed_at", "$created_at"]}}},
+                {"$group": {"_id": None, "avg_ms": {"$avg": "$diff_ms"}}},
+            ],
+        }},
+    ]
+
+    result = await alerts_col().aggregate(pipeline).to_list(length=None)
+    facet = result[0] if result else {"by_status": [], "mean_time": []}
+
+    counts: dict[str, int] = {}
+    for bucket in facet.get("by_status", []):
+        counts[bucket["_id"]] = bucket["count"]
+
+    total = sum(counts.values())
+    success = counts.get("processedSuccessfully", 0)
+    failed = sum(counts.get(s, 0) for s in failed_statuses)
+    incomplete = total - success - failed
+
+    mean_time_raw = facet.get("mean_time", [])
+    mean_seconds: float | None = None
+    if mean_time_raw and mean_time_raw[0].get("avg_ms") is not None:
+        mean_seconds = round(mean_time_raw[0]["avg_ms"] / 1000, 1)
+
+    return {
+        "total": total,
+        "success": success,
+        "failed": failed,
+        "incomplete": max(incomplete, 0),
+        "mean_processing_time_seconds": mean_seconds,
+    }
+
+
 @router.get("/{alert_id}")
 async def get_alert(alert_id: str):
     doc = await alerts_col().find_one({"_id": ObjectId(alert_id)})

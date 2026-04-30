@@ -160,9 +160,9 @@ def _process(msg: dict):
     confidence = validation.get("confidence_score", 0)
     alert_update: dict = {}
     if confidence and confidence > 0:
-        alert_update = {"status": "completed", "processing_status": "processedSuccessfully"}
+        alert_update = {"status": "completed", "processing_status": "processedSuccessfully", "processed_at": datetime.now(UTC)}
     else:
-        alert_update = {"status": "validation_failed", "processing_status": "RCANotValidated"}
+        alert_update = {"status": "validation_failed", "processing_status": "RCANotValidated", "processed_at": datetime.now(UTC)}
     if batch_id:
         alert_update["retry_in_progress"] = False
     alerts_col_sync().update_one({"_id": ObjectId(alert_id)}, {"$set": alert_update})

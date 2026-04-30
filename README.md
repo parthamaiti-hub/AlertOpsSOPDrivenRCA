@@ -1,4 +1,4 @@
-# SOP Driven Alert Analytics
+# AIOps Alert Analytics with SOP-driven RCA
 
 An AIOps MVP for alert analytics with SOP-driven root cause analysis. Processes alerts through 3 AI agent stages (IdentifySOP, ExecuteSOP, ValidateRCA) using LangChain/LangGraph, with a NextJS feedback UI.
 

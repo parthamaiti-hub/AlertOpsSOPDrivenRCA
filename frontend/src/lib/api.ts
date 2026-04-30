@@ -36,6 +36,52 @@ export async function fetchAlerts(filters: AlertFilters = {}) {
   return res.json();
 }
 
+function buildStatsParams(filters: AlertFilters): URLSearchParams {
+  const params = new URLSearchParams();
+  if (filters.application) params.set("application", filters.application);
+  if (filters.domain) params.set("domain", filters.domain);
+  if (filters.category) params.set("category", filters.category);
+  if (filters.severity) params.set("severity", filters.severity);
+  if (filters.sop_id) params.set("sop_id", filters.sop_id);
+  if (filters.processing_status) params.set("processing_status", filters.processing_status);
+  if (filters.feedback_received != null) params.set("feedback_received", String(filters.feedback_received));
+  if (filters.root_cause) params.set("root_cause", filters.root_cause);
+  if (filters.date_from) params.set("date_from", filters.date_from);
+  if (filters.date_to) params.set("date_to", filters.date_to);
+  if (filters.alert_id) params.set("alert_id", filters.alert_id);
+  return params;
+}
+
+export interface AlertStats {
+  total: number;
+  success: number;
+  failed: number;
+  incomplete: number;
+  mean_processing_time_seconds: number | null;
+  total_alerts?: number;
+}
+
+export async function fetchAlertStats(filters: AlertFilters = {}): Promise<AlertStats> {
+  const params = buildStatsParams(filters);
+  const res = await fetch(`${API}/api/alerts/stats?${params.toString()}`);
+  if (!res.ok) throw new Error("Failed to fetch alert stats");
+  return res.json();
+}
+
+export async function fetchRetryStats(filters: AlertFilters = {}): Promise<AlertStats> {
+  const params = new URLSearchParams();
+  if (filters.alert_id) params.set("alert_id", filters.alert_id);
+  if (filters.application) params.set("application", filters.application);
+  if (filters.domain) params.set("domain", filters.domain);
+  if (filters.category) params.set("category", filters.category);
+  if (filters.severity) params.set("severity", filters.severity);
+  if (filters.date_from) params.set("date_from", filters.date_from);
+  if (filters.date_to) params.set("date_to", filters.date_to);
+  const res = await fetch(`${API}/api/retries/stats?${params.toString()}`);
+  if (!res.ok) throw new Error("Failed to fetch retry stats");
+  return res.json();
+}
+
 export async function fetchAlert(id: string) {
   const res = await fetch(`${API}/api/alerts/${id}`);
   if (!res.ok) throw new Error("Alert not found");

@@ -224,7 +224,7 @@ def _process(msg: dict):
     if has_failures:
         alerts_col_sync().update_one(
             {"_id": ObjectId(alert_id)},
-            {"$set": {"status": "sop_workflow_processfailed", "processing_status": "sop_workflow_processfailed"}},
+            {"$set": {"status": "sop_workflow_processfailed", "processing_status": "sop_workflow_processfailed", "processed_at": datetime.now(UTC)}},
         )
         _update_retry_state(batch_id, alert_id, "failed", "triaging step failures")
         if batch_id:
@@ -234,7 +234,7 @@ def _process(msg: dict):
 
     root_cause = rca.get("root_cause", "")
     if not root_cause or root_cause == "N/A":
-        alerts_col_sync().update_one({"_id": ObjectId(alert_id)}, {"$set": {"status": "rca_not_found", "processing_status": "RCANotFound"}})
+        alerts_col_sync().update_one({"_id": ObjectId(alert_id)}, {"$set": {"status": "rca_not_found", "processing_status": "RCANotFound", "processed_at": datetime.now(UTC)}})
         _update_retry_state(batch_id, alert_id, "failed", "RCA root cause not determined")
         if batch_id:
             alerts_col_sync().update_one({"_id": ObjectId(alert_id)}, {"$set": {"retry_in_progress": False}})

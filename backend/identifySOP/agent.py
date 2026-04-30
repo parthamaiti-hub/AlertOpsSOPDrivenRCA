@@ -20,7 +20,6 @@ from backend.models.database import (
     sop_workflows_col_sync,
 )
 from backend.prompts.loader import get_loader
-from backend.sopmanagement.service import get_active_mapping
 from backend.utils import strip_rtf
 
 logger = logging.getLogger(__name__)
@@ -288,9 +287,9 @@ def _process(msg: dict):
     workflow_id = None
 
     if sop_id:
-        active_mapping = get_active_mapping(sop_id)
-        if active_mapping:
-            workflow_id = active_mapping.get("workflow_id")
+        wf = sop_workflows_col_sync().find_one({"sop_id": sop_id})
+        if wf:
+            workflow_id = str(wf["_id"])
 
         # Stamp the classifier log with retry metadata
         if batch_id:
@@ -322,7 +321,7 @@ def _process(msg: dict):
     else:
         alerts_col_sync().update_one(
             {"_id": ObjectId(alert_id)},
-            {"$set": {"status": "sop_not_found", "processing_status": "SOPNotFound"}},
+            {"$set": {"status": "sop_not_found", "processing_status": "SOPNotFound", "processed_at": datetime.now(UTC)}},
         )
         _update_retry_state(batch_id, alert_id, "failed", "SOP not found")
         if batch_id:

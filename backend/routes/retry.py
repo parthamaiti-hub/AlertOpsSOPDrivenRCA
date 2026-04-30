@@ -1,10 +1,13 @@
 import logging
+from datetime import datetime
 
+from bson import ObjectId
 from fastapi import APIRouter, HTTPException
 
 from backend.eventprocessing.retry_service import request_retry
 from backend.models.database import (
     alert_retry_attempts_col,
+    alerts_col,
     classifier_match_logs_col,
     rca_results_col,
     retry_stage_events_col,
@@ -20,6 +23,93 @@ logger = logging.getLogger(__name__)
 async def submit_retry(body: RetryRequest):
     results = request_retry(body.alert_ids, body.retry_level, body.reason)
     return results
+
+
+@router.get("/stats")
+async def get_retry_stats(
+    application: str | None = None,
+    domain: str | None = None,
+    category: str | None = None,
+    severity: str | None = None,
+    alert_id: str | None = None,
+    date_from: str | None = None,
+    date_to: str | None = None,
+):
+    # Build alert-level filter to resolve matching alert_ids
+    alert_query: dict = {}
+    if alert_id:
+        try:
+            alert_query["_id"] = ObjectId(alert_id)
+        except Exception:
+            pass
+    if application:
+        alert_query["source_application"] = {"$regex": application, "$options": "i"}
+    if domain:
+        alert_query["domain"] = {"$regex": domain, "$options": "i"}
+    if category:
+        alert_query["category"] = {"$regex": category, "$options": "i"}
+    if severity:
+        alert_query["severity"] = severity
+
+    attempt_match: dict = {}
+    if alert_query:
+        matching_ids: list[str] = []
+        async for doc in alerts_col().find(alert_query, {"_id": 1}):
+            matching_ids.append(str(doc["_id"]))
+        attempt_match["alert_id"] = {"$in": matching_ids}
+
+    if date_from or date_to:
+        date_filter: dict = {}
+        if date_from:
+            date_filter["$gte"] = datetime.fromisoformat(date_from)
+        if date_to:
+            date_filter["$lte"] = datetime.fromisoformat(date_to + "T23:59:59")
+        attempt_match["requested_at"] = date_filter
+
+    pipeline = [
+        {"$match": attempt_match},
+        {"$facet": {
+            "by_state": [{"$group": {"_id": "$state", "count": {"$sum": 1}}}],
+            "mean_time": [
+                {"$match": {"completed_at": {"$ne": None}, "requested_at": {"$exists": True}}},
+                {"$project": {"diff_ms": {"$subtract": ["$completed_at", "$requested_at"]}}},
+                {"$group": {"_id": None, "avg_ms": {"$avg": "$diff_ms"}}},
+            ],
+            "distinct_alerts": [
+                {"$group": {"_id": "$alert_id"}},
+                {"$count": "count"},
+            ],
+        }},
+    ]
+
+    result = await alert_retry_attempts_col().aggregate(pipeline).to_list(length=None)
+    facet = result[0] if result else {"by_state": [], "mean_time": [], "distinct_alerts": []}
+
+    counts: dict[str, int] = {}
+    for bucket in facet.get("by_state", []):
+        counts[bucket["_id"]] = bucket["count"]
+
+    total = sum(counts.values())
+    success = counts.get("completed", 0)
+    failed = counts.get("failed", 0)
+    incomplete = total - success - failed
+
+    mean_time_raw = facet.get("mean_time", [])
+    mean_seconds: float | None = None
+    if mean_time_raw and mean_time_raw[0].get("avg_ms") is not None:
+        mean_seconds = round(mean_time_raw[0]["avg_ms"] / 1000, 1)
+
+    distinct = facet.get("distinct_alerts", [])
+    total_alerts = distinct[0]["count"] if distinct else 0
+
+    return {
+        "total": total,
+        "success": success,
+        "failed": failed,
+        "incomplete": max(incomplete, 0),
+        "mean_processing_time_seconds": mean_seconds,
+        "total_alerts": total_alerts,
+    }
 
 
 @router.get("/{batch_id}")

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   fetchAlerts,
   fetchAlert,
@@ -12,7 +12,10 @@ import {
   fetchAlertRetryHistory,
   fetchRetryBatch,
   fetchRetryRunOutput,
+  fetchAlertStats,
+  fetchRetryStats,
   AlertFilters,
+  AlertStats,
   RetryLevel,
 } from "@/lib/api";
 import SopManagementPanel from "@/app/SopManagementPanel";
@@ -157,6 +160,10 @@ export default function Home() {
   const [retryRunPopup, setRetryRunPopup] = useState<{ alertId: string; batchId: string; level: string; completedAt: string | null; data: any } | null>(null);
   const [retryRunPopupLoading, setRetryRunPopupLoading] = useState(false);
 
+  // KPI stats for each tab's bar
+  const [alertStats, setAlertStats] = useState<AlertStats | null>(null);
+  const [retryStats, setRetryStats] = useState<AlertStats | null>(null);
+
   const loadAlerts = useCallback(async () => {
     setLoading(true);
     try {
@@ -173,6 +180,7 @@ export default function Home() {
       setTotal(0);
     }
     setLoading(false);
+    fetchAlertStats(filters).then(setAlertStats).catch(() => {});
   }, [filters]);
 
   const loadRetryAlerts = useCallback(async () => {
@@ -191,6 +199,7 @@ export default function Home() {
       setRetryTotal(0);
     }
     setRetryLoading(false);
+    fetchRetryStats(retryFilters).then(setRetryStats).catch(() => {});
   }, [retryFilters]);
 
   useEffect(() => {
@@ -338,6 +347,38 @@ export default function Home() {
     setRetrySubmitting(false);
   };
 
+  const renderKpiBar = (stats: AlertStats, label: string, icon: React.ReactNode) => {
+    const total = stats.total || 0;
+    const pctSuccess = total > 0 ? (stats.success / total) * 100 : 0;
+    const pctFailed  = total > 0 ? (stats.failed  / total) * 100 : 0;
+    const pctIncomplete = total > 0 ? (stats.incomplete / total) * 100 : 0;
+    const meanSec = stats.mean_processing_time_seconds;
+    const meanLabel = meanSec == null ? "—"
+      : meanSec < 60 ? `${meanSec}s`
+      : `${Math.floor(meanSec / 60)}m ${Math.round(meanSec % 60)}s`;
+    return (
+      <div className="ml-auto flex items-center gap-3 py-2 text-xs text-[#888888] select-none">
+        <span className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-gray-100 text-[#032147] font-semibold text-[10px] uppercase tracking-wide whitespace-nowrap">
+          {icon}
+          {label}
+        </span>
+        {stats.total_alerts != null && (
+          <span className="text-[#209dd7] font-semibold">{stats.total_alerts} alerts</span>
+        )}
+        <div className="flex h-1 w-24 rounded overflow-hidden bg-gray-200">
+          <span style={{ width: `${pctSuccess}%` }}    className="bg-green-500" />
+          <span style={{ width: `${pctFailed}%` }}     className="bg-red-500" />
+          <span style={{ width: `${pctIncomplete}%` }} className="bg-[#ecad0a]" />
+        </div>
+        <span>{total} {stats.total_alerts != null ? "attempts" : "total"}</span>
+        <span className="text-green-600 font-medium">{stats.success}✓</span>
+        <span className="text-red-600 font-medium">{stats.failed}✗</span>
+        <span className="text-[#ecad0a] font-medium">{stats.incomplete}~</span>
+        <span>{meanLabel} avg</span>
+      </div>
+    );
+  };
+
   return (
     <div className="flex flex-col h-[calc(100vh-64px)]">
       {/* Tab bar */}
@@ -355,6 +396,23 @@ export default function Home() {
             {tab.label}
           </button>
         ))}
+        {activeTab === "alerts" && alertStats && renderKpiBar(
+          alertStats,
+          "Ingested",
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+            <polyline points="7 10 12 15 17 10"/>
+            <line x1="12" y1="15" x2="12" y2="3"/>
+          </svg>
+        )}
+        {activeTab === "retry" && retryStats && renderKpiBar(
+          retryStats,
+          "Retry Attempts",
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="1 4 1 10 7 10"/>
+            <path d="M3.51 15a9 9 0 1 0 .49-4.5"/>
+          </svg>
+        )}
       </div>
 
       {/* SOP Management tab */}

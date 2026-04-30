@@ -35,6 +35,7 @@ class Alert(BaseModel):
     retry_attempt_count: int = 0
     latest_effective_rca_id: str | None = None
     logged_at: datetime | None = None
+    processed_at: datetime | None = None
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
@@ -132,25 +133,4 @@ class SOPMapping(BaseModel):
     sop_document_id: str | None = None
     workflow_id: str | None = None
     seeded: bool = False
-    sop_document_version: str = "1.0"
-    workflow_version: str = "1.0"
-    mapping_version_created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
-    change_type: str = "new_sop"  # new_sop | new_version | workflow_edit
-    changed_by: str = "system"
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
-
-
-class SOPMappingHistory(BaseModel):
-    """Immutable snapshot of a sop_mappings record taken before it is superseded."""
-    sop_id: str
-    sop_document_file: str
-    workflow_file: str
-    sop_document_id: str | None = None
-    workflow_id: str | None = None
-    sop_document_version: str
-    workflow_version: str
-    mapping_version_created_at: datetime
-    change_type: str
-    changed_by: str = "system"
-    archived_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
-    snapshot: dict = Field(default_factory=dict)  # full mapping record at time of archival
