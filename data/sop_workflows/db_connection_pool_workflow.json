@@ -3,7 +3,9 @@
   "alert_identifier": {
     "application": "payment-gateway",
     "domain": "database",
-    "category": "connectivity"
+    "category": "connectivity",
+    "severity": ["high"],
+    "sop_identifier_keys": []
   },
   "triaging_steps": [
     {
@@ -45,11 +47,20 @@
       }
     }
   ],
+  "remediation_steps": [],
   "communication_steps": [
     {
-      "channel": "teams",
-      "template": "alert_rca_notification",
-      "recipients": ["db-ops-team", "app-owners"]
+      "step_id": 5,
+      "action": "Send RCA notification to DB ops and app owners via Teams",
+      "tool": "teams_message",
+      "tool_params": {
+        "channel": "db-ops-team",
+        "template": "alert_rca_notification",
+        "include": ["rca_summary", "triaging_results"]
+      },
+      "condition": "",
+      "requires_approval": false
     }
-  ]
+  ],
+  "escalation": []
 }

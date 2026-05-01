@@ -93,7 +93,7 @@ async def list_alerts(
         query["$or"] = [
             {"sop_id": {"$regex": sop_id, "$options": "i"}},
             {"sop_document_id": {"$regex": sop_id, "$options": "i"}},
-            {"sop_identifier_keys": {"$regex": sop_id, "$options": "i"}},
+            {"alert_sop_identifier_keys": {"$regex": sop_id, "$options": "i"}},
         ]
     if processing_status:
         query["processing_status"] = processing_status
@@ -162,7 +162,7 @@ async def get_alert_stats(
         query["$or"] = [
             {"sop_id": {"$regex": sop_id, "$options": "i"}},
             {"sop_document_id": {"$regex": sop_id, "$options": "i"}},
-            {"sop_identifier_keys": {"$regex": sop_id, "$options": "i"}},
+            {"alert_sop_identifier_keys": {"$regex": sop_id, "$options": "i"}},
         ]
     if processing_status:
         query["processing_status"] = processing_status

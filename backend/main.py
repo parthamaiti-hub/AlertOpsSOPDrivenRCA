@@ -8,7 +8,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from backend.routes import alerts, feedback, prompts, rca, retry, sop, tools as tools_routes, webhooks
+from backend.routes import alerts, feedback, pending_actions, prompts, rca, retry, sop, tools as tools_routes, webhooks
 from backend.sopmanagement import routes as sop_management_routes
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(levelname)s %(message)s")
@@ -63,6 +63,7 @@ app.include_router(webhooks.router)
 app.include_router(prompts.router)
 app.include_router(retry.router)
 app.include_router(tools_routes.router)
+app.include_router(pending_actions.router)
 
 
 @app.get("/api/health")

@@ -17,7 +17,7 @@ class Alert(BaseModel):
     domain: str = ""
     category: str = ""
     severity: str = ""
-    sop_identifier_keys: list[str] = []
+    alert_sop_identifier_keys: list[str] = []
     raw_payload: dict[str, Any] = {}
     alert_type: str = "structured"  # structured | text
     alert_text: str = ""
@@ -56,9 +56,11 @@ class SOPDocument(BaseModel):
 
 class SOPWorkflow(BaseModel):
     sop_id: str
-    alert_identifier: dict[str, str] = {}
+    alert_identifier: dict[str, Any] = {}
     triaging_steps: list[dict[str, Any]] = []
+    remediation_steps: list[dict[str, Any]] = []
     communication_steps: list[dict[str, Any]] = []
+    escalation: list[dict[str, Any]] = []
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 

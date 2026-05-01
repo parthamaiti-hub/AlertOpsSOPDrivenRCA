@@ -1,0 +1,269 @@
+{
+ "sop_id": "SOP_HIGH_COUNT_EXT_AUTHZ_ERROR_CRITICAL",
+ "alert_identifier": {
+  "application": "MEG",
+  "domain": "api_gateway",
+  "category": "authorization_failure",
+  "severity": [
+   "critical"
+  ],
+  "sop_identifier_keys": [
+   "ext_authz_error",
+   "High Count of ext_authz_error",
+   "TaapSec",
+   "TAG"
+  ]
+ },
+ "triaging_steps": [
+  {
+   "step_id": 1,
+   "action": "Reply on the alert thread (do not formally Ack) so the team knows triage has started",
+   "tool": "teams_message",
+   "tool_params": {
+    "channel": "API CFE - Alerts | tag-prod-alert-action",
+    "thread": "{alert_thread}",
+    "message": "Checking TAG & TaapSec Logs",
+    "ack": false
+   }
+  },
+  {
+   "step_id": 2,
+   "action": "Break down ext_authz_error events by cluster, namespace, and deployment",
+   "tool": "splunk_query",
+   "tool_params": {
+    "query": "index=meg_dataplane respCodeDetails=ext_authz_error | stats count by kubernetes_cluster, kubernetes_namespace, kubernetes_deployment_name | sort - count",
+    "time_range": "5m"
+   }
+  },
+  {
+   "step_id": 3,
+   "action": "Classify each affected cluster as TKE (names starting with 'px' or 'tt') or Conduktor (DUCK) so the correct dashboard is selected",
+   "tool": "llm_analysis",
+   "tool_params": {
+    "context": [
+     "step_2_output"
+    ],
+    "prompt": "For each kubernetes_cluster from step_2_output, classify the platform: clusters whose names start with 'px' or 'tt' are TKE; all others are Conduktor (DUCK). Return a mapping of cluster -> platform."
+   }
+  },
+  {
+   "step_id": 4,
+   "action": "Inspect TAG resource dashboard for the affected cluster/namespace/deployment, then DECIDE: if Memory % > 65 OR CPU % > 65 OR pod_restarts > 0, call TAG PE Tier-2 (execute remediation step 12) before continuing; otherwise continue to step 5",
+   "tool": "dashboard_query",
+   "tool_params": {
+    "dashboard": "Application Monitoring Dashboard or Resource Usage Splunk O11y Dashboard",
+    "platform": "{step_3_output.platform}",
+    "filters": {
+     "Cluster": "{step_2_output.kubernetes_cluster}",
+     "namespace": "{step_2_output.kubernetes_namespace}",
+     "Deployment/Statefulset/Daemonset/Jobs": "{step_2_output.kubernetes_deployment_name}"
+    },
+    "metrics": [
+     "memory_usage_percent",
+     "cpu_usage_percent",
+     "pod_restarts"
+    ],
+    "thresholds": {
+     "memory_usage_percent": "> 65",
+     "cpu_usage_percent": "> 65",
+     "pod_restarts": "> 0"
+    },
+    "on_threshold_breach": "trigger remediation step_id 12 (page TAG PE Tier-2)",
+    "next_step_on_pass": 5,
+    "next_step_after_breach": 5
+   }
+  },
+  {
+   "step_id": 5,
+   "action": "Post the TAG dashboard screenshot and link to the internal Teams thread",
+   "tool": "teams_message",
+   "tool_params": {
+    "channel": "API CFE - Internal | tag-internal",
+    "include": [
+     "step_4_screenshot",
+     "step_4_link"
+    ]
+   }
+  },
+  {
+   "step_id": 6,
+   "action": "Check TaapSec (taap-validator-ms) for connection or 5xx errors. If the result is empty, post 'no 5xx errors / connection errors on taap validator ms' to the internal Teams thread; otherwise post the Splunk link and a screenshot of the result table to the internal Teams thread (handled in step 8)",
+   "tool": "splunk_query",
+   "tool_params": {
+    "query": "index=meg_dataplane serviceName=taap-validator-ms \"java.net.ConnectException\" OR httpStatusCode=\"5*\" | stats count by kubernetes_cluster, kubernetes_namespace, kubernetes_deployment_name, kubernetes_pod_id, kubernetes_pod_name | sort -count",
+    "time_range": "5m",
+    "on_empty_result": {
+     "channel": "API CFE - Internal | tag-internal",
+     "message": "no 5xx errors / connection errors on taap validator ms"
+    },
+    "on_non_empty_result": "include splunk_link and result_screenshot when posting in step 8",
+    "next_step": 7
+   }
+  },
+  {
+   "step_id": 7,
+   "action": "Inspect TaapSec resource dashboard for the affected cluster/namespace/deployment, then DECIDE: if Memory % > 65 OR CPU % > 65 OR pod_restarts > 0, call TAAPSEC Tier-2 (execute remediation step 13) before continuing; otherwise continue to step 8. Also note any network errors / dropped packets",
+   "tool": "dashboard_query",
+   "tool_params": {
+    "dashboard": "Application Monitoring Dashboard or Resource Usage Splunk O11y Dashboard",
+    "platform": "{step_6_output.platform}",
+    "filters": {
+     "Cluster": "{step_6_output.kubernetes_cluster}",
+     "namespace": "{step_6_output.kubernetes_namespace}",
+     "deployment": "{step_6_output.kubernetes_deployment_name}"
+    },
+    "metrics": [
+     "memory_usage_percent",
+     "cpu_usage_percent",
+     "network_errors",
+     "dropped_packets",
+     "pod_restarts"
+    ],
+    "thresholds": {
+     "memory_usage_percent": "> 65",
+     "cpu_usage_percent": "> 65",
+     "pod_restarts": "> 0"
+    },
+    "on_threshold_breach": "trigger remediation step_id 13 (page TAAPSEC Tier-2)",
+    "next_step_on_pass": 8,
+    "next_step_after_breach": 8
+   }
+  },
+  {
+   "step_id": 8,
+   "action": "Post the TaapSec dashboard screenshot and link to the internal Teams thread",
+   "tool": "teams_message",
+   "tool_params": {
+    "channel": "API CFE - Internal | tag-internal",
+    "include": [
+     "step_7_screenshot",
+     "step_7_link"
+    ]
+   }
+  },
+  {
+   "step_id": 9,
+   "action": "Validate whether failures are caused by long-running client requests (~7 seconds, clientDuration > 6500 ms)",
+   "tool": "splunk_query",
+   "tool_params": {
+    "query": "index=meg_dataplane respCodeDetails=ext_authz_error kubernetes_cluster={cluster} kubernetes_namespace={namespace} proxyName=* clientDuration>6500",
+    "time_range": "5m",
+    "cluster": "{step_2_output.kubernetes_cluster}",
+    "namespace": "{step_2_output.kubernetes_namespace}"
+   }
+  },
+  {
+   "step_id": 10,
+   "action": "Visualize TaapSec node-level latency to detect node-localized slowdowns - high latency isolated to specific nodes that recovers quickly typically indicates VMotion (node migration), not a system-wide issue",
+   "tool": "splunk_query",
+   "tool_params": {
+    "query": "index=meg_dataplane eventType=performAuthChecks kubernetes_namespace={namespace} kubernetes_cluster IN ({clusters}) kubernetes_deployment_name=taap-validator-ms-prd* processingTimeMillis>1000 | timechart span=1s avg(processingTimeMillis) by kubernetes_node_name",
+    "time_range": "15m",
+    "clusters": "{step_2_output.kubernetes_cluster}",
+    "namespace": "{step_2_output.kubernetes_namespace}"
+   }
+  },
+  {
+   "step_id": 11,
+   "action": "Synthesize all gathered data and decide root cause / disposition",
+   "tool": "llm_analysis",
+   "tool_params": {
+    "context": [
+     "step_2_output",
+     "step_4_output",
+     "step_6_output",
+     "step_7_output",
+     "step_9_output",
+     "step_10_output"
+    ],
+    "prompt": "Analyze ext_authz_error data and decide one of: (a) single spike < 5 minutes with no follow-on errors -> close, no action; (b) sustained or repeated -> escalate per remediation rules; (c) high latency localized to specific nodes that recovers quickly -> likely VMotion (node migration), no action. Possible upstream causes to consider: TAG to TaapSec call did not reach TaapSec; TaapSec took too long to respond; TaapSec response did not reach TAG in time; high memory utilization of the TAG node."
+   }
+  }
+ ],
+ "remediation_steps": [
+  {
+   "step_id": 12,
+   "action": "Page TAG PE Tier-2 team - TAG resource thresholds breached or TAG pods restarting",
+   "tool": "page_team",
+   "tool_params": {
+    "team": "TAG PE Tier-2",
+    "context": [
+     "step_4_output"
+    ]
+   },
+   "condition": "step_4_output.memory_usage_percent > 65 OR step_4_output.cpu_usage_percent > 65 OR step_4_output.pod_restarts > 0",
+   "requires_approval": false
+  },
+  {
+   "step_id": 13,
+   "action": "Page TAAPSEC Tier-2 team - TaapSec resource thresholds breached or TaapSec pods restarting",
+   "tool": "page_team",
+   "tool_params": {
+    "team": "TAAPSEC Tier-2",
+    "context": [
+     "step_7_output"
+    ]
+   },
+   "condition": "step_7_output.memory_usage_percent > 65 OR step_7_output.cpu_usage_percent > 65 OR step_7_output.pod_restarts > 0",
+   "requires_approval": false
+  },
+  {
+   "step_id": 14,
+   "action": "Tag DPO core team and Tier-2 owners in the alert thread when two consecutive alerts have been received for the same signature",
+   "tool": "teams_message",
+   "tool_params": {
+    "channel": "API CFE - Alerts | tag-prod-alert-action",
+    "thread": "{alert_thread}",
+    "tag": [
+     "TAG T1 (DPO)",
+     "TAAPSEC Data Plane T2",
+     "TAG T2 (PE)"
+    ]
+   },
+   "condition": "consecutive_alert_count >= 2",
+   "requires_approval": false
+  }
+ ],
+ "communication_steps": [
+  {
+   "step_id": 15,
+   "action": "Teams communication to the teams channel API CFE - Internal | tag-internal",
+   "tool": "teams_message",
+   "tool_params": {
+    "channel": "API CFE - Alerts | tag-prod-alert-action",
+    "thread": "{alert_thread}",
+    "tag": [
+     "TAG T1 (DPO)",
+     "TAAPSEC Data Plane T2",
+     "TAG T2 (PE)"
+    ],
+    "include": [
+     "rca_summary",
+     "tag_dashboard_screenshot",
+     "tag_dashboard_link",
+     "taapsec_query_result",
+     "taapsec_dashboard_screenshot",
+     "taapsec_dashboard_link",
+     "remediation_steps" 
+    ]
+},
+   "condition": "",
+   "requires_approval": false
+  }
+ ],
+ "escalation": [
+  {
+   "step_id": 16,
+   "action": "create incident in service now if any step in the triaging or remediation steps fails",
+   "tool": "servicenow_incident",
+   "tool_params": {
+    "template": "incident_creation",
+    "priority": "P4",
+    "assignment_group": "see SOP reference '27. INC Assignment Group'"
+   },
+   "condition": "on_failure",
+   "requires_approval": false
+  }
+ ]
+}
+ 

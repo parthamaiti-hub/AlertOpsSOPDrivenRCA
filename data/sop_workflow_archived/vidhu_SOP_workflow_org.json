@@ -92,45 +92,26 @@
     ],
   
    
+  
     "communication_steps": [
-        {
-          "step_id": 8,
-          "action": "Teams communication to the teams channel API CFE - Internal | tag-internal",
-          "tool": "teams_message",
-          "tool_params": {
-            "template": "alert_rca_notification",
-            "channel": ["infra-ops-team"],
-            "thread": "{alert_thread}",
-            "tag": [
-            "TAG T1 (DPO)",
-            "TAAPSEC Data Plane T2",
-            "TAG T2 (PE)"
-            ],
-            "include": [
-            "rca_summary",
-            "impact_assessment", 
-            "remediation_steps" 
-            ]
-          },
-          "condition": "",
-          "requires_approval": false
-        }
+      {
+        "channel": "teams",
+        "template": "alert_rca_notification",
+        "recipients": ["infra-ops-team"],
+        "include": ["rca_summary", "impact_assessment", "remediation_steps"]
+      }
     ],
   
-   "escalation": [
-    {
-      "step_id": 9,
-      "action": "create incident in service now if any step in the triaging or remediation steps fails",
-      "tool": "servicenow_incident",
-      "tool_params": {
+   
+  
+    "escalation": {
+      "on_failure": {
+        "channel": "servicenow",
         "template": "incident_creation",
-        "priority": "P4",
+        "priority": "high",
         "assignment_group": "infra-ops-team"
-      },
-      "condition": "on_failure",
-      "requires_approval": false
+      }
     }
-   ]
   }
   
    

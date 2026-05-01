@@ -34,6 +34,13 @@ def _build_dynamic_text(dynamic_classifiers: list[dict]) -> str:
     return " | dynamic classifiers: " + ", ".join(parts) if parts else ""
 
 
+def _build_sop_keys_text(keys: list) -> str:
+    """Build text from workflow sop_identifier_keys for ChromaDB indexing."""
+    if not keys:
+        return ""
+    return " | sop_keys: " + ", ".join(str(k) for k in keys)
+
+
 def get_all_dynamic_field_names() -> list[str]:
     """Return distinct dynamic classifier field_names across all SOP mappings."""
     db = get_sync_db()
@@ -109,9 +116,11 @@ def seed_all() -> list[dict]:
                 logger.info("Updated dynamic_classifiers for SOP: %s", sop_id)
                 from bson import ObjectId
                 sop_doc = sop_docs_col.find_one({"_id": ObjectId(doc_id)}) if doc_id else None
+                wf_doc = sop_wf_col.find_one({"_id": ObjectId(existing["workflow_id"])}) if existing.get("workflow_id") else None
+                wf_keys = (wf_doc.get("alert_identifier") or {}).get("sop_identifier_keys", []) if wf_doc else []
                 if sop_doc:
                     try:
-                        chroma_content = sop_doc["content"] + _build_dynamic_text(dynamic_classifiers)
+                        chroma_content = sop_doc["content"] + _build_dynamic_text(dynamic_classifiers) + _build_sop_keys_text(wf_keys)
                         index_sop_document(sop_id, chroma_content, {
                             "application": existing.get("application", ""),
                             "domain": existing.get("domain", ""),
@@ -127,13 +136,50 @@ def seed_all() -> list[dict]:
                     results.append({"sop_document_file": sop_doc_filename, "sop_id": sop_id, "status": "updated_classifiers_mongo_only"})
                 continue
 
+            # Sync workflow structural changes (remediation_steps, escalation, etc.) if workflow file changed
+            workflow_id = existing.get("workflow_id", "")
+            if workflow_id and meta.get("workflow_file"):
+                workflow_path = DATA_DIR / "sop_workflows" / meta["workflow_file"]
+                if workflow_path.exists():
+                    file_wf = json.loads(workflow_path.read_text())
+                    from bson import ObjectId
+                    stored_wf = sop_wf_col.find_one({"_id": ObjectId(workflow_id)}) if workflow_id else None
+                    if stored_wf:
+                        _WORKFLOW_SECTIONS = ["alert_identifier", "triaging_steps", "remediation_steps", "communication_steps", "escalation"]
+                        if any(file_wf.get(s) != stored_wf.get(s) for s in _WORKFLOW_SECTIONS):
+                            update_fields = {s: file_wf.get(s, stored_wf.get(s)) for s in _WORKFLOW_SECTIONS}
+                            sop_wf_col.update_one({"_id": ObjectId(workflow_id)}, {"$set": update_fields})
+                            logger.info("Updated workflow sections for SOP: %s", sop_id)
+                            # Re-index ChromaDB with updated sop_identifier_keys from new workflow
+                            wf_keys = (file_wf.get("alert_identifier") or {}).get("sop_identifier_keys", [])
+                            sop_doc = sop_docs_col.find_one({"_id": ObjectId(doc_id)}) if doc_id else None
+                            if sop_doc:
+                                dc = existing.get("dynamic_classifiers", [])
+                                chroma_content = sop_doc["content"] + _build_dynamic_text(dc) + _build_sop_keys_text(wf_keys)
+                                try:
+                                    index_sop_document(sop_id, chroma_content, {
+                                        "application": existing.get("application", ""),
+                                        "domain": existing.get("domain", ""),
+                                        "category": existing.get("category", ""),
+                                        "severity": existing.get("severity", ""),
+                                        "sop_document_id": doc_id,
+                                    })
+                                except Exception as e:
+                                    logger.error("Failed to re-index ChromaDB for %s: %s", sop_id, e)
+                            results.append({"sop_document_file": sop_doc_filename, "sop_id": sop_id, "status": "updated_workflow"})
+                            continue
+
             if sop_id and not is_sop_indexed(sop_id):
                 logger.warning("SOP %s in MongoDB but missing from ChromaDB — re-indexing", sop_id)
                 from bson import ObjectId
                 sop_doc = sop_docs_col.find_one({"_id": ObjectId(doc_id)}) if doc_id else None
                 if sop_doc:
                     try:
-                        index_sop_document(sop_id, sop_doc["content"], {
+                        wf_doc = sop_wf_col.find_one({"_id": ObjectId(existing.get("workflow_id", ""))}) if existing.get("workflow_id") else None
+                        wf_keys = (wf_doc.get("alert_identifier") or {}).get("sop_identifier_keys", []) if wf_doc else []
+                        dc = existing.get("dynamic_classifiers", [])
+                        chroma_content = sop_doc["content"] + _build_dynamic_text(dc) + _build_sop_keys_text(wf_keys)
+                        index_sop_document(sop_id, chroma_content, {
                             "application": existing.get("application", ""),
                             "domain": existing.get("domain", ""),
                             "category": existing.get("category", ""),
@@ -178,7 +224,8 @@ def seed_all() -> list[dict]:
         doc_id = str(doc_result.inserted_id)
 
         # Index in ChromaDB with canonical sop_id from workflow
-        chroma_content = content + _build_dynamic_text(dynamic_classifiers)
+        wf_keys = (workflow_data.get("alert_identifier") or {}).get("sop_identifier_keys", [])
+        chroma_content = content + _build_dynamic_text(dynamic_classifiers) + _build_sop_keys_text(wf_keys)
         index_sop_document(workflow_sop_id, chroma_content, {
             "application": meta["application"],
             "domain": meta["domain"],
@@ -310,7 +357,8 @@ def create_sop_mapping(
     doc_result = sop_docs_col.insert_one(doc)
     doc_id = str(doc_result.inserted_id)
 
-    chroma_content = doc_content + _build_dynamic_text(dynamic_classifiers)
+    wf_keys = (workflow_data.get("alert_identifier") or {}).get("sop_identifier_keys", [])
+    chroma_content = doc_content + _build_dynamic_text(dynamic_classifiers) + _build_sop_keys_text(wf_keys)
     index_sop_document(sop_id, chroma_content, {
         "application": application,
         "domain": domain,
@@ -382,7 +430,9 @@ def update_classifier(sop_id: str, fields: dict) -> dict:
                 "sop_document_id": doc_id,
             }
             dc = merged.get("dynamic_classifiers", [])
-            chroma_content = existing_doc.get("content", "") + _build_dynamic_text(dc)
+            wf_doc = db["sop_workflows"].find_one({"sop_id": sop_id})
+            wf_keys = (wf_doc.get("alert_identifier") or {}).get("sop_identifier_keys", []) if wf_doc else []
+            chroma_content = existing_doc.get("content", "") + _build_dynamic_text(dc) + _build_sop_keys_text(wf_keys)
             index_sop_document(sop_id, chroma_content, meta)
 
     updated = sop_mappings_col.find_one({"sop_id": sop_id}, {"_id": 0})
@@ -446,7 +496,11 @@ def update_doc_file(sop_id: str, doc_content: str, doc_filename: str) -> None:
     sop_mappings_col.update_one({"sop_id": sop_id}, {"$set": {"sop_document_file": doc_filename}})
 
     # Re-index ChromaDB with updated content
-    index_sop_document(sop_id, doc_content, {
+    dc = mapping.get("dynamic_classifiers", [])
+    wf_doc = db["sop_workflows"].find_one({"sop_id": sop_id})
+    wf_keys = (wf_doc.get("alert_identifier") or {}).get("sop_identifier_keys", []) if wf_doc else []
+    chroma_content = doc_content + _build_dynamic_text(dc) + _build_sop_keys_text(wf_keys)
+    index_sop_document(sop_id, chroma_content, {
         "application": mapping.get("application", ""),
         "domain": mapping.get("domain", ""),
         "category": mapping.get("category", ""),

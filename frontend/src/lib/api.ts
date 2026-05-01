@@ -260,3 +260,32 @@ export async function fetchToolHistory(toolName: string): Promise<ToolHistoryEnt
   if (!res.ok) return [];
   return res.json();
 }
+
+// Pending Actions
+
+export interface PendingAction {
+  _id: string;
+  alert_id: string;
+  step_id: number;
+  section: string;
+  tool: string;
+  action: string;
+  tool_params: Record<string, unknown>;
+  status: string;
+  result?: unknown;
+}
+
+export async function fetchPendingActions(alertId: string): Promise<PendingAction[]> {
+  const res = await fetch(`${API}/api/alerts/${encodeURIComponent(alertId)}/pending-actions`);
+  if (!res.ok) return [];
+  return res.json();
+}
+
+export async function approvePendingAction(alertId: string, stepId: number): Promise<unknown> {
+  const res = await fetch(
+    `${API}/api/alerts/${encodeURIComponent(alertId)}/pending-actions/${stepId}/approve`,
+    { method: "POST" }
+  );
+  if (!res.ok) throw new Error("Failed to approve action");
+  return res.json();
+}

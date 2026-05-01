@@ -22,6 +22,32 @@ def test_sop_document():
 def test_sop_workflow():
     w = SOPWorkflow(sop_id="s1", triaging_steps=[{"step_id": 1, "tool": "splunk_query"}])
     assert len(w.triaging_steps) == 1
+    assert w.remediation_steps == []
+    assert w.escalation == []
+    assert isinstance(w.escalation, list)
+
+
+def test_sop_workflow_full_structure():
+    w = SOPWorkflow(
+        sop_id="SOP_TEST",
+        alert_identifier={
+            "application": "app1",
+            "domain": "infra",
+            "category": "perf",
+            "severity": ["critical"],
+            "sop_identifier_keys": ["high_cpu"],
+        },
+        triaging_steps=[{"step_id": 1, "tool": "splunk_query"}],
+        remediation_steps=[{"step_id": 2, "tool": "page_team", "requires_approval": True}],
+        communication_steps=[{"step_id": 3, "tool": "teams_message"}],
+        escalation=[{"step_id": 4, "tool": "servicenow_incident", "condition": "on_failure"}],
+    )
+    assert w.alert_identifier["severity"] == ["critical"]
+    assert w.alert_identifier["sop_identifier_keys"] == ["high_cpu"]
+    assert len(w.remediation_steps) == 1
+    assert w.remediation_steps[0]["requires_approval"] is True
+    assert len(w.escalation) == 1
+    assert w.escalation[0]["condition"] == "on_failure"
 
 
 def test_rca_result():

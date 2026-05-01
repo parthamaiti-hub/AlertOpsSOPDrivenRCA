@@ -3,7 +3,9 @@
   "alert_identifier": {
     "application": "order-service",
     "domain": "infrastructure",
-    "category": "performance"
+    "category": "performance",
+    "severity": ["critical"],
+    "sop_identifier_keys": []
   },
   "triaging_steps": [
     {
@@ -45,11 +47,20 @@
       }
     }
   ],
+  "remediation_steps": [],
   "communication_steps": [
     {
-      "channel": "teams",
-      "template": "alert_rca_notification",
-      "recipients": ["ops-team"]
+      "step_id": 5,
+      "action": "Send RCA notification to ops team via Teams",
+      "tool": "teams_message",
+      "tool_params": {
+        "channel": "ops-team",
+        "template": "alert_rca_notification",
+        "include": ["rca_summary", "triaging_results"]
+      },
+      "condition": "",
+      "requires_approval": false
     }
-  ]
+  ],
+  "escalation": []
 }

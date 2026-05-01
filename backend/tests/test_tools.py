@@ -3,6 +3,9 @@ from unittest.mock import MagicMock, patch
 from backend.tools.splunk_query import splunk_query
 from backend.tools.prometheus_query import prometheus_query
 from backend.tools.health_check import health_check
+from backend.tools.page_team import page_team
+from backend.tools.teams_message import teams_message
+from backend.tools.servicenow_incident import servicenow_incident
 from backend.tools.registry import execute_tool, TOOL_REGISTRY
 
 
@@ -47,6 +50,52 @@ def test_registry_unknown_tool_returns_error_dict():
     assert isinstance(result, dict)
     assert "error" in result
 
+
+def test_page_team():
+    result = page_team(team="sre-team", context=["alert_123"])
+    assert result["tool"] == "page_team"
+    assert result["team"] == "sre-team"
+    assert result["status"] == "paged"
+    assert "alert_123" in result["context_refs"]
+
+
+def test_page_team_no_context():
+    result = page_team(team="ops")
+    assert result["context_refs"] == []
+
+
+def test_teams_message():
+    result = teams_message(channel="ops-alerts", message="RCA complete")
+    assert result["tool"] == "teams_message"
+    assert result["channel"] == "ops-alerts"
+    assert result["status"] == "sent"
+
+
+def test_teams_message_ack():
+    result = teams_message(channel="c", ack=True)
+    assert result["ack"] is True
+
+
+def test_servicenow_incident():
+    result = servicenow_incident(priority="P1", assignment_group="sre-team", description="disk full")
+    assert result["tool"] == "servicenow_incident"
+    assert result["status"] == "created"
+    assert result["priority"] == "P1"
+    assert result["assignment_group"] == "sre-team"
+
+
+def test_servicenow_incident_defaults():
+    result = servicenow_incident()
+    assert result["status"] == "created"
+    assert result["priority"] == ""
+
+
+def test_registry_has_new_tools():
+    assert "page_team" in TOOL_REGISTRY
+    assert "teams_message" in TOOL_REGISTRY
+    assert "servicenow_incident" in TOOL_REGISTRY
+    assert "llm_analysis" in TOOL_REGISTRY
+    assert "dashboard_query" in TOOL_REGISTRY
 
 def test_execute_tool_exception_handling():
     """A tool that raises an exception should be caught by the caller."""

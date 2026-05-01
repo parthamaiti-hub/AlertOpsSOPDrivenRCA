@@ -73,15 +73,14 @@ def main():
 
     # Poll for completion
     print("\nWaiting for pipeline processing...")
-    target_statuses = ["sop_identified", "rca_generated", "completed"]
+    terminal_statuses = {"completed", "pending_actions", "sop_workflow_processfailed", "rca_not_found", "sop_not_found"}
 
     for fname, info in results.items():
         alert_id = info["alert_id"]
         start = time.time()
         last_status = "ingested"
-        current_target = 0
 
-        while current_target < len(target_statuses) and (time.time() - start) < POLL_TIMEOUT:
+        while (time.time() - start) < POLL_TIMEOUT:
             resp = client.get(f"/api/alerts/{alert_id}")
             if resp.status_code == 200:
                 doc = resp.json()
@@ -94,14 +93,12 @@ def main():
                     last_status = status
                     sop_tag = f" [SOP: {sop_id}]" if sop_id else ""
                     print(f"  {fname}: {status}{sop_tag}")
-                if status == "completed":
+                if status in terminal_statuses:
                     break
-                idx = target_statuses.index(status) if status in target_statuses else -1
-                if idx >= current_target:
-                    current_target = idx + 1
             time.sleep(POLL_INTERVAL)
 
-        if last_status != "completed":
+        info["final_status"] = last_status
+        if last_status not in terminal_statuses:
             info["stages"]["timeout"] = True
             print(f"  {fname}: TIMEOUT (last status: {last_status})")
 
@@ -138,6 +135,24 @@ def main():
         info["feedback"] = resp.status_code == 201
         print(f"  {fname}: {'PASS' if resp.status_code == 201 else 'FAIL'}")
 
+    # Check pending actions (steps skipped due to requires_approval=true)
+    print("\nChecking pending actions (steps awaiting manual approval)...")
+    for fname, info in results.items():
+        alert_id = info["alert_id"]
+        resp = client.get(f"/api/alerts/{alert_id}/pending-actions")
+        if resp.status_code == 200:
+            pending = resp.json()
+            info["pending_actions"] = pending
+            if pending:
+                print(f"  {fname}: {len(pending)} step(s) pending manual approval:")
+                for pa in pending:
+                    print(f"    step {pa.get('step_id'):>3} [{pa.get('section',''):12}] tool={pa.get('tool',''):<20} action={pa.get('action','')[:60]}")
+            else:
+                print(f"  {fname}: no pending actions")
+        else:
+            info["pending_actions"] = []
+            print(f"  {fname}: could not retrieve pending actions ({resp.status_code})")
+
     # Summary
     print("\n" + "=" * 70)
     print("SUMMARY")
@@ -146,20 +161,31 @@ def main():
     print(f"  {'-'*38}  {'-'*10}  {'-'*28}  {'-'*6}")
     all_pass = True
     for fname, info in results.items():
-        stages_ok = "completed" in info["stages"]
+        final_status = info.get("final_status", "")
+        stages_ok = final_status in ("completed", "pending_actions")
         rca_ok = all(info.get("rca_checks", {}).values()) if isinstance(info.get("rca_checks"), dict) and "error" not in info.get("rca_checks", {}) else False
         fb_ok = info.get("feedback", False)
+        pending = info.get("pending_actions", [])
         overall = stages_ok and rca_ok and fb_ok
         if not overall:
             all_pass = False
         sop_id = info.get("sop_id") or "N/A"
         alert_type = info.get("alert_type", "structured")
         detail = f"stages={'OK' if stages_ok else 'FAIL'}, rca={'OK' if rca_ok else 'FAIL'}, feedback={'OK' if fb_ok else 'FAIL'}"
+        if pending:
+            detail += f", pending={len(pending)} step(s)"
         status = "PASS" if overall else "FAIL"
+        if overall and pending:
+            status = "PASS*"
         print(f"  {fname:<40} {alert_type:<12} {sop_id:<30} {status}")
         print(f"  {'':40} {'':12} {detail}")
+        if pending:
+            for pa in pending:
+                print(f"  {'':40} {'':12} PENDING step {pa.get('step_id'):>3} [{pa.get('section',''):12}] {pa.get('tool','')}: {pa.get('action','')[:50]}")
 
     print(f"\nOverall: {'ALL PASS' if all_pass else 'SOME FAILED'}")
+    if any(info.get("pending_actions") for info in results.values()):
+        print("* PASS* = pipeline completed but has steps awaiting manual approval")
     sys.exit(0 if all_pass else 1)
 
 

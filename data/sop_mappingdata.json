@@ -73,7 +73,7 @@
       "domain":"infrastructure",
       "category":"Authentiction",
       "severity":"critical",
-      "workflow_file":"high_Count_ext_authz_error_workflow.json",
+      "workflow_file":"TAG_Highcount_authz_error_workflow.json",
       "dynamic_classifiers":[
          {"label":"1","field_name":"alert","field_value":"High Count of ext_authz_error - Critical !!"},
          {"label":"2","field_name":"kubernetes_cluster","field_value":"meg-prd-w2"},
@@ -135,4 +135,5 @@
          {"label":"7","field_name":"service_tier","field_value":"tier-1"}
       ]
    }
+   
 }

@@ -3,7 +3,9 @@
   "alert_identifier": {
     "application": "api-gateway",
     "domain": "api",
-    "category": "errors"
+    "category": "errors",
+    "severity": ["high"],
+    "sop_identifier_keys": []
   },
   "triaging_steps": [
     {
@@ -46,11 +48,20 @@
       }
     }
   ],
+  "remediation_steps": [],
   "communication_steps": [
     {
-      "channel": "teams",
-      "template": "alert_rca_notification",
-      "recipients": ["api-platform-team", "sre-team"]
+      "step_id": 5,
+      "action": "Send RCA notification to API platform and SRE teams via Teams",
+      "tool": "teams_message",
+      "tool_params": {
+        "channel": "api-platform-team",
+        "template": "alert_rca_notification",
+        "include": ["rca_summary", "triaging_results"]
+      },
+      "condition": "",
+      "requires_approval": false
     }
-  ]
+  ],
+  "escalation": []
 }

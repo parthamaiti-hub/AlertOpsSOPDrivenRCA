@@ -27,21 +27,12 @@ def print_sop_mapping_detail(doc: dict):
     print(f"  domain          : {doc.get('domain', '')}")
     print(f"  category        : {doc.get('category', '')}")
     print(f"  severity        : {doc.get('severity', '')}")
-    print(f"  doc_version     : {doc.get('sop_document_version', '—')}")
-    print(f"  wf_version      : {doc.get('workflow_version', '—')}")
-    print(f"  effective_at    : {doc.get('mapping_version_created_at', '—')}")
-    print(f"  change_type     : {doc.get('change_type', '—')}")
     print(f"  sop_document_id : {doc.get('sop_document_id', '')}")
     print(f"  workflow_id     : {doc.get('workflow_id', '')}")
     print(f"  doc_file        : {doc.get('sop_document_file', '')}")
     print(f"  workflow_file   : {doc.get('workflow_file', '')}")
     print(f"  source          : {doc.get('source', doc.get('seeded', '?'))}")  # supports both old and new field
     print(f"  created_at      : {doc.get('created_at', '')}")
-
-    # History count
-    history_count = db.sop_mapping_history.count_documents({"sop_id": doc.get("sop_id", "")})
-    if history_count:
-        print(f"  history_entries : {history_count} archived version(s)")
 
     # Dynamic classifiers
     dcs = doc.get("dynamic_classifiers", [])
@@ -75,17 +66,27 @@ def print_sop_mapping_detail(doc: dict):
             # Show alert_identifier
             ident = wf.get("alert_identifier", {})
             if ident:
-                print(f"                   alert_identifier: app={ident.get('application','')}  domain={ident.get('domain','')}  category={ident.get('category','')}")
+                sev = ident.get('severity', '')
+                print(f"                   alert_identifier: app={ident.get('application','')}  domain={ident.get('domain','')}  category={ident.get('category','')}  severity={sev}")
             # Show triaging steps
             if steps:
                 print(f"                   --- Triaging Steps ---")
                 for step in steps:
-                    print(f"                   step {step.get('step_id','?')}: [{step.get('tool','')}] {step.get('action','')}")
+                    approval = " [requires_approval]" if step.get("requires_approval") else ""
+                    print(f"                   step {step.get('step_id','?')}: [{step.get('tool','')}] {step.get('action','')}{approval}")
+            # Show remediation steps
+            rem = wf.get("remediation_steps", [])
+            if rem:
+                print(f"                   remediation_steps: {len(rem)} step(s)")
             # Show communication steps
             comm = wf.get("communication_steps", [])
             if comm:
-                channels = ", ".join(s.get("channel", "") for s in comm)
-                print(f"                   communication_steps: {channels}")
+                tools_used = ", ".join(s.get("tool", s.get("channel", "")) for s in comm)
+                print(f"                   communication_steps: {tools_used}")
+            # Show escalation
+            esc = wf.get("escalation", [])
+            if esc:
+                print(f"                   escalation: {len(esc)} step(s)")
         else:
             print(f"  [sop_workflows]  WARNING: workflow {wf_id} not found")
 
@@ -192,7 +193,8 @@ def show_all():
     print(f"\nTotals: {db.alerts.count_documents({})} alerts, {db.rca_results.count_documents({})} RCAs, "
           f"{db.validation_results.count_documents({})} validations, {db.sop_documents.count_documents({})} SOP docs, "
           f"{db.sop_workflows.count_documents({})} workflows, {db.sop_mappings.count_documents({})} SOP mappings, "
-          f"{db.prompts.count_documents({})} prompts, {db.classifier_match_logs.count_documents({})} match logs")
+          f"{db.prompts.count_documents({})} prompts, {db.classifier_match_logs.count_documents({})} match logs, "
+          f"{db.pending_actions.count_documents({})} pending_actions")
 
 
 if __name__ == "__main__":

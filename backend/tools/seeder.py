@@ -84,6 +84,71 @@ _INITIAL_TOOL_DEFS = [
         "source_file": "backend/tools/shell_script.py",
         "_source_filename": "shell_script.py",
     },
+    {
+        "tool": "page_team",
+        "tool_version": "1.0",
+        "tool_tech": "python_script",
+        "description": "Page an on-call team via PagerDuty or OpsGenie. Returns paging status.",
+        "tool_params": [
+            {"name": "team", "description": "Team name or escalation policy to page", "required": True, "default": None},
+            {"name": "message", "description": "Alert message to include in the page", "required": False, "default": ""},
+            {"name": "context", "description": "List of context reference IDs", "required": False, "default": "[]"},
+        ],
+        "source_file": "backend/tools/page_team.py",
+        "_source_filename": "page_team.py",
+    },
+    {
+        "tool": "teams_message",
+        "tool_version": "1.0",
+        "tool_tech": "python_script",
+        "description": "Send a message to a Microsoft Teams channel.",
+        "tool_params": [
+            {"name": "channel", "description": "Teams channel name or webhook ID", "required": True, "default": None},
+            {"name": "message", "description": "Message body to send", "required": False, "default": ""},
+            {"name": "ack", "description": "Acknowledgement flag", "required": False, "default": "false"},
+        ],
+        "source_file": "backend/tools/teams_message.py",
+        "_source_filename": "teams_message.py",
+    },
+    {
+        "tool": "servicenow_incident",
+        "tool_version": "1.0",
+        "tool_tech": "python_script",
+        "description": "Create or update a ServiceNow incident.",
+        "tool_params": [
+            {"name": "priority", "description": "Incident priority (1-4)", "required": False, "default": "3"},
+            {"name": "assignment_group", "description": "Assignment group name", "required": False, "default": ""},
+            {"name": "template", "description": "Incident template name", "required": False, "default": ""},
+        ],
+        "source_file": "backend/tools/servicenow_incident.py",
+        "_source_filename": "servicenow_incident.py",
+    },
+    {
+        "tool": "llm_analysis",
+        "tool_version": "1.0",
+        "tool_tech": "python_script",
+        "description": "Run LLM-based analysis on provided context or logs.",
+        "tool_params": [
+            {"name": "prompt", "description": "Analysis prompt or question", "required": False, "default": ""},
+            {"name": "context", "description": "Context text or list to analyze", "required": False, "default": ""},
+            {"name": "focus", "description": "Focus area for analysis", "required": False, "default": ""},
+        ],
+        "source_file": "backend/tools/llm_analysis.py",
+        "_source_filename": "llm_analysis.py",
+    },
+    {
+        "tool": "dashboard_query",
+        "tool_version": "1.0",
+        "tool_tech": "python_script",
+        "description": "Query a Grafana or Kibana dashboard for panel metrics.",
+        "tool_params": [
+            {"name": "dashboard", "description": "Dashboard name or ID", "required": False, "default": ""},
+            {"name": "panels", "description": "List of panel names to retrieve", "required": False, "default": "[]"},
+            {"name": "time_range", "description": "Time range (e.g. 1h, 24h)", "required": False, "default": "1h"},
+        ],
+        "source_file": "backend/tools/dashboard_query.py",
+        "_source_filename": "dashboard_query.py",
+    },
 ]
 
 
@@ -94,6 +159,7 @@ def _read_source(filename: str) -> str:
 
 def seed_tools() -> int:
     """Seed initial tool definitions into MongoDB. Idempotent: skips tools already in DB.
+    Also updates source_code for existing tools if the file on disk has changed.
 
     Returns count of newly seeded tools.
     """
@@ -104,10 +170,19 @@ def seed_tools() -> int:
 
     for defn in _INITIAL_TOOL_DEFS:
         tool_name = defn["tool"]
-        if col.find_one({"tool": tool_name}):
+        source = _read_source(defn["_source_filename"])
+        existing = col.find_one({"tool": tool_name})
+
+        if existing:
+            # Update source_code if it has changed
+            if existing.get("source_code") != source and source:
+                col.update_one(
+                    {"tool": tool_name},
+                    {"$set": {"source_code": source, "version_created_at": now}},
+                )
+                logger.info("Updated source for tool: %s", tool_name)
             continue
 
-        source = _read_source(defn["_source_filename"])
         doc = {k: v for k, v in defn.items() if not k.startswith("_")}
         doc["source_code"] = source
         doc["change_type"] = "initial_seed"

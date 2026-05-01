@@ -3,7 +3,9 @@
   "alert_identifier": {
     "application": "cmdb",
     "domain": "infrastructure",
-    "category": "configuration"
+    "category": "configuration",
+    "severity": ["high"],
+    "sop_identifier_keys": []
   },
   "triaging_steps": [
     {
@@ -59,11 +61,20 @@
       }
     }
   ],
+  "remediation_steps": [],
   "communication_steps": [
     {
-      "channel": "teams",
-      "template": "alert_rca_notification",
-      "recipients": ["change-management-team", "infra-sre-team"]
+      "step_id": 5,
+      "action": "Send RCA notification to change management and infra SRE teams via Teams",
+      "tool": "teams_message",
+      "tool_params": {
+        "channel": "change-management-team",
+        "template": "alert_rca_notification",
+        "include": ["rca_summary", "triaging_results"]
+      },
+      "condition": "",
+      "requires_approval": false
     }
-  ]
+  ],
+  "escalation": []
 }

@@ -2,7 +2,7 @@ import random
 from datetime import UTC, datetime, timedelta
 
 
-def splunk_query(query: str, time_range: str = "1h") -> dict:
+def splunk_query(query: str, time_range: str = "1h", **kwargs) -> dict:
     """Stub Splunk SPL query. Returns mock log entries."""
     now = datetime.now(UTC)
     levels = ["ERROR", "WARN", "ERROR", "ERROR", "INFO"]

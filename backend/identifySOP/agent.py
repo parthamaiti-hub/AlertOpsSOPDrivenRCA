@@ -91,7 +91,7 @@ def _build_graph():
             "domain": msg.get("domain", ""),
             "category": msg.get("category", ""),
             "severity": msg.get("severity", ""),
-            "sop_keys": msg.get("sop_identifier_keys", []),
+            "sop_keys": msg.get("alert_sop_identifier_keys", []),
         }, "dynamic_fields": {}}
 
     def llm_extract_classifiers(state: IdentifyState) -> dict:
@@ -128,7 +128,7 @@ def _build_graph():
             "domain": data.get("domain", ""),
             "category": data.get("category", ""),
             "severity": data.get("severity", ""),
-            "sop_keys": data.get("sop_identifier_keys", []),
+            "sop_keys": data.get("alert_sop_identifier_keys", []),
         }
         dynamic_fields = data.get("dynamic_fields", {})
         return {"classifier": classifier, "dynamic_fields": dynamic_fields}

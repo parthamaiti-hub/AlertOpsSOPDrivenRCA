@@ -3,7 +3,7 @@ extract_classifiers: |
   {field_names}
 
   For each field, return the most likely value based on the alert content.
-  Also extract standard classifiers: application, domain, category, severity, sop_identifier_keys.
+  Also extract standard classifiers: application, domain, category, severity, alert_sop_identifier_keys.
 
   Alert text:
   {alert_text}
@@ -14,7 +14,7 @@ extract_classifiers: |
     "domain": "...",
     "category": "...",
     "severity": "...",
-    "sop_identifier_keys": ["..."],
+    "alert_sop_identifier_keys": ["..."],
     "dynamic_fields": {{
       "field_name_1": "value_1",
       "field_name_2": "value_2"

@@ -3,7 +3,9 @@
   "alert_identifier": {
     "application": "TAG",
     "domain": "infrastructure",
-    "category": "Authentiction"
+    "category": "Authentiction",
+    "severity": ["critical"],
+    "sop_identifier_keys": ["ext_authz_error", "High Count of ext_authz_error"]
   },
   "triaging_steps": [
     {
@@ -45,11 +47,20 @@
       }
     }
   ],
+  "remediation_steps": [],
   "communication_steps": [
     {
-      "channel": "teams",
-      "template": "alert_rca_notification",
-      "recipients": ["dev-team", "sre-team"]
+      "step_id": 5,
+      "action": "Send RCA notification to dev and SRE teams via Teams",
+      "tool": "teams_message",
+      "tool_params": {
+        "channel": "dev-team",
+        "template": "alert_rca_notification",
+        "include": ["rca_summary", "triaging_results"]
+      },
+      "condition": "",
+      "requires_approval": false
     }
-  ]
+  ],
+  "escalation": []
 }

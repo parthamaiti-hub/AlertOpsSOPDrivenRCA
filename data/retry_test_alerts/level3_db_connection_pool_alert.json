@@ -8,7 +8,7 @@
     "domain": "database",
     "category": "connectivity",
     "severity": "high",
-    "sop_identifier_keys": ["connection_pool", "exhaustion"],
+    "alert_sop_identifier_keys": ["connection_pool", "exhaustion"],
     "alert_type": "structured",
     "status": "sop_identified",
     "processing_status": "sop_workflow_processfailed",

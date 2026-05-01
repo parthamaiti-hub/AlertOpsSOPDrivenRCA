@@ -92,10 +92,10 @@ def test_seed_all_calls_insert_and_index():
         from backend.sopmanagement.service import seed_all
         results = seed_all()
 
-    assert len(results) == 4
+    assert len(results) == 8
     assert all(r["status"] == "seeded" for r in results)
-    assert mock_index.call_count == 4
-    assert mock_mappings_col.insert_one.call_count == 4
+    assert mock_index.call_count == 8
+    assert mock_mappings_col.insert_one.call_count == 8
 
 
 def test_seed_all_skips_existing():
@@ -355,6 +355,7 @@ def test_update_doc_file_success():
     mapping = {"sop_id": "SOP_HIGH_CPU", "sop_document_id": valid_doc_id,
                "application": "a", "domain": "d", "category": "c", "severity": "s"}
     mock_mappings.find_one.return_value = mapping
+    mock_wf.find_one.return_value = None
     mock_docs.update_one = MagicMock()
 
     mock_db = _make_mock_db(mock_docs, mock_wf, mock_mappings)

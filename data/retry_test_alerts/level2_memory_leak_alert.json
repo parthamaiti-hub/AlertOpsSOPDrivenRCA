@@ -8,7 +8,7 @@
     "domain": "infrastructure",
     "category": "memory",
     "severity": "warning",
-    "sop_identifier_keys": ["memory_leak", "heap_growth"],
+    "alert_sop_identifier_keys": ["memory_leak", "heap_growth"],
     "alert_type": "structured",
     "status": "ingested",
     "processing_status": "SOPNotFound",

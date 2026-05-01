@@ -2,7 +2,7 @@ import random
 from datetime import UTC, datetime, timedelta
 
 
-def prometheus_query(query: str, step: str = "60s", duration: str = "1h") -> dict:
+def prometheus_query(query: str, step: str = "60s", duration: str = "1h", **kwargs) -> dict:
     """Stub Prometheus PromQL query. Returns mock time-series data."""
     now = datetime.now(UTC)
     step_seconds = int(step.rstrip("s"))

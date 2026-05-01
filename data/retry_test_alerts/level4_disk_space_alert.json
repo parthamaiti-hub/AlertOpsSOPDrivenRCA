@@ -8,7 +8,7 @@
     "domain": "infrastructure",
     "category": "storage",
     "severity": "critical",
-    "sop_identifier_keys": ["disk_space", "filesystem_full"],
+    "alert_sop_identifier_keys": ["disk_space", "filesystem_full"],
     "alert_type": "text",
     "alert_text": "ALERT: Disk Space Critical on prod-k8s-node-07. Severity: Critical. The root filesystem on host prod-k8s-node-07 has reached 95% utilization. Linux Ubuntu 22.04 machine running containerized workloads in us-west-2 AWS region. Container logs and temp files are primary consumers. Disk I/O is elevated. Application health checks are intermittently failing. Mount point affected: /var/lib/docker.",
     "status": "rca_generated",

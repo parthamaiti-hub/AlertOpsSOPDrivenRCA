@@ -39,7 +39,7 @@ from backend.config.settings import settings
 MONGO_DB = settings.mongodb_db
 CHROMA_COLLECTIONS = ["sop_documents", "validation_rca"]
 
-OPERATIONAL_COLS = ["alerts", "rca_results", "validation_results", "feedback", "classifier_match_logs"]
+OPERATIONAL_COLS = ["alerts", "rca_results", "validation_results", "feedback", "classifier_match_logs", "pending_actions"]
 SOP_COLS = ["sop_documents", "sop_workflows", "sop_mappings"]
 PROMPT_COLS = ["prompts"]
 

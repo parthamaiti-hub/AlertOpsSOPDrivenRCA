@@ -2,7 +2,10 @@
 
 import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
-import { fetchAlert, fetchRCA, fetchFeedback, submitFeedback, fetchClassifierMatchLog } from "@/lib/api";
+import {
+  fetchAlert, fetchRCA, fetchFeedback, submitFeedback, fetchClassifierMatchLog,
+  fetchPendingActions, approvePendingAction, PendingAction,
+} from "@/lib/api";
 
 export default function AlertDetailClient() {
   const { id } = useParams<{ id: string }>();
@@ -15,13 +18,31 @@ export default function AlertDetailClient() {
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState("");
   const [classifierMatch, setClassifierMatch] = useState<any>(null);
+  const [pendingActions, setPendingActions] = useState<PendingAction[]>([]);
+  const [approveResults, setApproveResults] = useState<Record<number, unknown>>({});
+  const [approvingStep, setApprovingStep] = useState<number | null>(null);
 
   useEffect(() => {
     fetchAlert(id).then(setAlert).catch(() => setError("Alert not found"));
     fetchRCA(id).then((r) => r && setRca(r)).catch(() => {});
     fetchFeedback(id).then(setFeedback).catch(() => {});
     fetchClassifierMatchLog(id).then((cm) => setClassifierMatch(cm && Object.keys(cm).length > 0 ? cm : null)).catch(() => {});
+    fetchPendingActions(id).then(setPendingActions).catch(() => {});
   }, [id]);
+
+  const handleApprove = async (stepId: number) => {
+    setApprovingStep(stepId);
+    try {
+      const result = await approvePendingAction(id, stepId);
+      setApproveResults((prev) => ({ ...prev, [stepId]: result }));
+      setPendingActions((prev) =>
+        prev.map((a) => (a.step_id === stepId ? { ...a, status: "executed" } : a))
+      );
+    } catch {
+      setApproveResults((prev) => ({ ...prev, [stepId]: { error: "Failed to execute" } }));
+    }
+    setApprovingStep(null);
+  };
 
   const handleSubmitFeedback = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -211,6 +232,58 @@ export default function AlertDetailClient() {
                 )}
               </div>
             )}
+          </div>
+        </section>
+      )}
+
+      {/* Pending Actions Section */}
+      {pendingActions.length > 0 && (
+        <section>
+          <h2 className="text-xl font-bold text-[#032147] mb-4">Pending Actions</h2>
+          <div className="space-y-3">
+            {pendingActions.map((pa) => {
+              const sectionColors: Record<string, string> = {
+                triaging: "bg-[#209dd7] text-white",
+                remediation: "bg-[#ecad0a] text-[#032147]",
+                communication: "bg-[#753991] text-white",
+                escalation: "bg-red-600 text-white",
+              };
+              const sectionColor = sectionColors[pa.section] || "bg-gray-200 text-gray-700";
+              const isDone = pa.status === "executed" || pa.step_id in approveResults;
+              const result = approveResults[pa.step_id];
+              return (
+                <div key={pa.step_id} className="bg-white border border-gray-200 rounded-lg p-4">
+                  <div className="flex items-start gap-2">
+                    <span className={`shrink-0 px-2 py-0.5 rounded text-xs font-medium ${sectionColor}`}>
+                      {pa.section}
+                    </span>
+                    <span className="shrink-0 px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-700">
+                      {pa.tool}
+                    </span>
+                    <span className="text-sm flex-1">{pa.action}</span>
+                    <button
+                      onClick={() => handleApprove(pa.step_id)}
+                      disabled={isDone || approvingStep === pa.step_id}
+                      className="shrink-0 px-3 py-1 text-sm font-medium rounded bg-[#753991] text-white hover:bg-[#5e2d74] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                    >
+                      {approvingStep === pa.step_id
+                        ? "Executing..."
+                        : isDone
+                        ? "Executed"
+                        : "Approve & Execute"}
+                    </button>
+                  </div>
+                  {result != null && (
+                    <details className="mt-3 text-sm text-[#888888]" open>
+                      <summary className="cursor-pointer hover:text-[#209dd7]">Result</summary>
+                      <pre className="mt-1 p-2 bg-gray-50 rounded overflow-x-auto text-xs">
+                        {JSON.stringify(result, null, 2)}
+                      </pre>
+                    </details>
+                  )}
+                </div>
+              );
+            })}
           </div>
         </section>
       )}

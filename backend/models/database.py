@@ -126,3 +126,11 @@ def tools_history_col():
 
 def tools_history_col_sync():
     return get_sync_db()["tools_history"]
+
+
+def pending_actions_col():
+    return get_db()["pending_actions"]
+
+
+def pending_actions_col_sync():
+    return get_sync_db()["pending_actions"]

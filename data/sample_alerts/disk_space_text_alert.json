@@ -1,0 +1,7 @@
+{
+  "alert_text": "ALERT: Disk Space Critical on prod-k8s-node-07\n\nSeverity: Critical\nTimestamp: 2026-04-15T14:22:00Z\nSource: Prometheus AlertManager\n\nThe root filesystem on host prod-k8s-node-07 has reached 95% utilization. The server is a Linux (Ubuntu 22.04) machine running containerized workloads in the us-west-2 AWS region. The container-platform application logs and temp files appear to be the primary consumers. Disk I/O is elevated. Application health checks are intermittently failing.\n\nThis is a production environment server in the cloud-aws infrastructure. The operating system is linux and the mount point affected is /var/lib/docker.",
+  "raw_payload": {
+    "host": "prod-k8s-node-07",
+    "alert_source": "monitoring-webhook"
+  }
+}

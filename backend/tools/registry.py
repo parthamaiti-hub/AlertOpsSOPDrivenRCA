@@ -4,12 +4,17 @@ import subprocess
 import sys
 import tempfile
 
+from backend.tools.dashboard_query import dashboard_query
 from backend.tools.graphql_query import graphql_query
 from backend.tools.health_check import health_check
+from backend.tools.llm_analysis import llm_analysis
 from backend.tools.mcp_client import mcp_client
+from backend.tools.page_team import page_team
 from backend.tools.prometheus_query import prometheus_query
+from backend.tools.servicenow_incident import servicenow_incident
 from backend.tools.shell_script import shell_script
 from backend.tools.splunk_query import splunk_query
+from backend.tools.teams_message import teams_message
 
 logger = logging.getLogger(__name__)
 
@@ -22,6 +27,11 @@ TOOL_REGISTRY: dict[str, callable] = {
     "mcp_client": mcp_client,
     "graphql_query": graphql_query,
     "shell_script": shell_script,
+    "page_team": page_team,
+    "teams_message": teams_message,
+    "servicenow_incident": servicenow_incident,
+    "llm_analysis": llm_analysis,
+    "dashboard_query": dashboard_query,
 }
 
 

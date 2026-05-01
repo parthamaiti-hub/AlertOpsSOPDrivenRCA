@@ -8,6 +8,8 @@ import {
   fetchFeedback,
   submitFeedback,
   fetchClassifierMatchLog,
+  fetchPendingActions,
+  approvePendingAction,
   submitRetry,
   fetchAlertRetryHistory,
   fetchRetryBatch,
@@ -17,6 +19,7 @@ import {
   AlertFilters,
   AlertStats,
   RetryLevel,
+  PendingAction,
 } from "@/lib/api";
 import SopManagementPanel from "@/app/SopManagementPanel";
 
@@ -28,6 +31,7 @@ const PROCESSING_STATUSES = [
   { value: "RCANotFound", label: "RCA Not Found" },
   { value: "RCANotValidated", label: "RCA Not Validated" },
   { value: "sop_workflow_processfailed", label: "Workflow Process Failed" },
+  { value: "pending_actions", label: "Pending Actions" },
 ];
 
 const SEVERITIES = [
@@ -46,6 +50,7 @@ function statusBadge(status: string) {
     RCANotValidated: "bg-yellow-100 text-yellow-700",
     sop_workflow_processfailed: "bg-red-100 text-red-700",
     ingested: "bg-gray-100 text-gray-600",
+    pending_actions: "bg-orange-100 text-orange-700",
   };
   return map[status] || "bg-gray-100 text-gray-600";
 }
@@ -133,6 +138,11 @@ export default function Home() {
   const [classifierMatch, setClassifierMatch] = useState<any>(null);
   const [detailLoading, setDetailLoading] = useState(false);
 
+  // Pending actions
+  const [pendingActions, setPendingActions] = useState<PendingAction[]>([]);
+  const [approveResults, setApproveResults] = useState<Record<number, unknown>>({});
+  const [approvingStep, setApprovingStep] = useState<number | null>(null);
+
   // Feedback form
   const [comment, setComment] = useState("");
   const [score, setScore] = useState(50);
@@ -217,20 +227,27 @@ export default function Home() {
       setRca(null);
       setFeedbackList([]);
       setClassifierMatch(null);
+      setPendingActions([]);
+      setApproveResults({});
+      setApprovingStep(null);
       return;
     }
     setDetailLoading(true);
     setSubmitted(false);
+    setApproveResults({});
+    setApprovingStep(null);
     Promise.all([
       fetchAlert(selectedId).catch(() => null),
       fetchRCA(selectedId).catch(() => null),
       fetchFeedback(selectedId).catch(() => []),
       fetchClassifierMatchLog(selectedId).catch(() => null),
-    ]).then(([a, r, f, cm]) => {
+      fetchPendingActions(selectedId).catch(() => []),
+    ]).then(([a, r, f, cm, pa]) => {
       setAlertDetail(a);
       setRca(r);
       setFeedbackList(Array.isArray(f) ? f : []);
       setClassifierMatch(cm && Object.keys(cm).length > 0 ? cm : null);
+      setPendingActions(Array.isArray(pa) ? pa : []);
       setDetailLoading(false);
     });
   }, [selectedId]);
@@ -254,6 +271,21 @@ export default function Home() {
       if (value === "" || value === undefined) delete next[key as keyof AlertFilters];
       return next;
     });
+  };
+
+  const handleApprove = async (stepId: number) => {
+    if (!selectedId) return;
+    setApprovingStep(stepId);
+    try {
+      const result = await approvePendingAction(selectedId, stepId);
+      setApproveResults((prev) => ({ ...prev, [stepId]: result }));
+      setPendingActions((prev) =>
+        prev.map((a) => (a.step_id === stepId ? { ...a, status: "executed" } : a))
+      );
+    } catch {
+      setApproveResults((prev) => ({ ...prev, [stepId]: { error: "Failed to execute" } }));
+    }
+    setApprovingStep(null);
   };
 
   const handleSubmitFeedback = async (e: React.FormEvent) => {
@@ -857,6 +889,11 @@ export default function Home() {
                           Feedback
                         </span>
                       )}
+                      {alert.processing_status === "pending_actions" && (
+                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-orange-100 text-orange-700 font-medium">
+                          Pending
+                        </span>
+                      )}
                     </div>
                     <p className="text-[10px] text-[#888888] mt-1 font-mono truncate">{alert._id}</p>
                     <p className="text-[10px] text-[#888888] mt-1 truncate">{loggedAt}</p>
@@ -1064,6 +1101,58 @@ export default function Home() {
                       )}
                     </div>
                   )}
+                </div>
+              </section>
+            )}
+
+            {/* Pending Actions Section */}
+            {pendingActions.length > 0 && (
+              <section>
+                <h2 className="text-lg font-bold text-[#032147] mb-3">Pending Actions</h2>
+                <div className="space-y-2">
+                  {pendingActions.map((pa) => {
+                    const sectionColors: Record<string, string> = {
+                      triaging: "bg-[#209dd7] text-white",
+                      remediation: "bg-[#ecad0a] text-[#032147]",
+                      communication: "bg-[#753991] text-white",
+                      escalation: "bg-red-600 text-white",
+                    };
+                    const sectionColor = sectionColors[pa.section] || "bg-gray-200 text-gray-700";
+                    const isDone = pa.status === "executed" || pa.status in approveResults;
+                    const result = approveResults[pa.step_id];
+                    return (
+                      <div key={pa.step_id} className="bg-white border border-gray-200 rounded-lg p-3">
+                        <div className="flex items-start gap-2">
+                          <span className={`shrink-0 px-1.5 py-0.5 rounded text-[10px] font-medium ${sectionColor}`}>
+                            {pa.section}
+                          </span>
+                          <span className="shrink-0 px-1.5 py-0.5 rounded text-[10px] font-medium bg-gray-100 text-gray-700">
+                            {pa.tool}
+                          </span>
+                          <span className="text-xs flex-1">{pa.action}</span>
+                          <button
+                            onClick={() => handleApprove(pa.step_id)}
+                            disabled={isDone || approvingStep === pa.step_id}
+                            className="shrink-0 px-2 py-0.5 text-[10px] font-medium rounded bg-[#753991] text-white hover:bg-[#5e2d74] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                          >
+                            {approvingStep === pa.step_id
+                              ? "Executing..."
+                              : isDone
+                              ? "Executed"
+                              : "Approve & Execute"}
+                          </button>
+                        </div>
+                        {result != null && (
+                          <details className="mt-2 text-xs text-[#888888]" open>
+                            <summary className="cursor-pointer hover:text-[#209dd7]">Result</summary>
+                            <pre className="mt-1 p-2 bg-gray-50 rounded overflow-x-auto text-[10px]">
+                              {JSON.stringify(result, null, 2)}
+                            </pre>
+                          </details>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               </section>
             )}
